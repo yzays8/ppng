@@ -7,8 +7,6 @@ from typing import Tuple
 # from PIL import Image
 # import matplotlib.pyplot as plt
 
-IMAGE_FILE = 'image/mandrill/type6-16bit.png'
-
 def decode_png(f: io.BufferedReader) -> None:
     read_header(f)
 
@@ -253,19 +251,25 @@ def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
 
     return chunk_length, chunk_type, chunk_data, chunk_crc
 
-def main() -> None:
+def main(argv: list[str]) -> int | None:
+    def usage():
+        print(f'usage: {argv[0]} <file>')
+        return 0
+
+    if len(argv) != 2:
+        return usage()
+
     try:
-        with open(IMAGE_FILE, 'rb') as f:
+        with open(argv[1], 'rb') as f:
             decode_png(f)
+        return
     except FileNotFoundError:
-        print(f'File not found: {IMAGE_FILE}')
-        sys.exit(1)
+        print(f'File not found: {argv[1]}')
     except PermissionError:
-        print(f'Permission denied: {IMAGE_FILE}')
-        sys.exit(1)
+        print(f'Permission denied: {argv[1]}')
     except Exception as e:
         print(e)
-        sys.exit(1)
+    return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv))
