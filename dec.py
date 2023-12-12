@@ -7,7 +7,7 @@ from typing import Tuple
 # from PIL import Image
 # import matplotlib.pyplot as plt
 
-IMAGE_FILE = 'image/mandrill/type2-8bit.png'
+IMAGE_FILE = 'image/mandrill/type6-16bit.png'
 
 def decode_png(f: io.BufferedReader) -> None:
     read_header(f)
