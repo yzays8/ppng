@@ -254,7 +254,7 @@ def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
 def main(argv: list[str]) -> int | None:
     def usage():
         print(f'usage: {argv[0]} <file>')
-        return 0
+        return
 
     if len(argv) != 2:
         return usage()
@@ -271,5 +271,5 @@ def main(argv: list[str]) -> int | None:
         print(e)
     return 1
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main(sys.argv))
