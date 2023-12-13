@@ -45,6 +45,13 @@ def decode_png(f: io.BufferedReader) -> None:
             print(f'tEXt Keyword: {keyword.decode("utf-8")}')
             if len(text) > 0:
                 print(f'\ttEXt Text: {text.decode("latin-1")}')
+        elif type == 'tIME':
+            if length != 7:
+                print('Invalid tIME chunk')
+                sys.exit(1)
+            year, month, day, hour, minute, second\
+                = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
+            print(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}')
         else:
             print(f'Chunk "{type}" is not supported')
             # sys.exit(1)
