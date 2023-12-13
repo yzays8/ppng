@@ -16,6 +16,9 @@ def decode_png(f: io.BufferedReader) -> None:
 
     while True:
         length, type, data, crc = read_chunk(f)
+        if not check_crc32(type, data, crc):
+            sys.exit(1)
+
         if type == 'IDAT':
             IDAT_chunk_data.write(data)
         elif type == 'IEND':
@@ -243,12 +246,15 @@ def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
     chunk_length = int.from_bytes(f.read(4))
     chunk_type = f.read(4).decode('utf-8')
     chunk_data = f.read(chunk_length)
-    chunk_crc = f.read(4)
+    chunk_crc = int.from_bytes(f.read(4))
 
     return chunk_length, chunk_type, chunk_data, chunk_crc
 
 def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
     length, type, data, crc = read_chunk(f)
+    if not check_crc32(type, data, crc):
+        sys.exit(1)
+
     if type == 'IHDR':
         if length != 13:
             print('Invalid IHDR chunk')
@@ -267,3 +273,12 @@ def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
         sys.exit(1)
 
     return width, height, bit_depth, color_type, compression_method, filter_method, interlace_method
+
+def check_crc32(type: str, data: bytes, crc: int) -> bool:
+    # CRC32 checksum for PNG chunks is calculated from the chunk type and chunk data
+    orig = type.encode('utf-8') + data
+    calc = zlib.crc32(orig)
+    if calc != crc:
+        print(f'Invalid CRC for chunk "{type}" (expected: {hex(crc)}, actual: {hex(calc)})')
+        return False
+    return True
