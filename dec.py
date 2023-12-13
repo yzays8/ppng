@@ -8,20 +8,17 @@ from typing import Tuple
 # import matplotlib.pyplot as plt
 
 def decode_png(f: io.BufferedReader) -> None:
-    read_header(f)
+    if not validate_header(f):
+        sys.exit(1)
 
     length, type, data, crc = read_chunk(f)
     if type == 'IHDR':
         if length != 13:
             print('Invalid IHDR chunk')
             sys.exit(1)
-        width = int.from_bytes(data[0:4])
-        height = int.from_bytes(data[4:8])
-        bit_depth = data[8]
-        color_type = data[9]
-        compression_method = data[10]
-        filter_method = data[11]
-        interlace_method = data[12]
+        width, height = map(int.from_bytes, (data[0:4], data[4:8]))
+        bit_depth, color_type, compression_method, filter_method, interlace_method\
+            = data[8], data[9], data[10], data[11], data[12]
         print(f'Image size: {width}x{height}')
         print(f'Bit depth: {bit_depth}')
         print(f'Color type: {color_type}')
@@ -104,7 +101,7 @@ def decode_png(f: io.BufferedReader) -> None:
         elif filter_type == 4: # Paeth filter
             for j in range(width * bytes_per_pixel):
                 a = int(color_data[i][j - bytes_per_pixel]) if j >= bytes_per_pixel else 0                  # left
-                b = int(color_data[i - 1][j]) if i > 0 else 0                                               # above
+                b = int(color_data[i - 1][j]) if i > 0 else 0                                               # upper
                 c = int(color_data[i - 1][j - bytes_per_pixel]) if i > 0 and j >= bytes_per_pixel else 0    # upper left
 
                 # Find the value closest to the prediction from among a, b, c
@@ -247,12 +244,11 @@ def get_bytes_per_pixel(color_type: int, bit_depth: int) -> int:
 
     return int(bits_per_pixel / 8)
 
-def read_header(f: io.BufferedReader) -> None:
-    if f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A':
-        print('PNG image')
-    else:
+def validate_header(f: io.BufferedReader) -> bool:
+    if f.read(8) != b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A':
         print('Invalid PNG image')
-        sys.exit(1)
+        return False
+    return True
 
 def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
     # Big endian
