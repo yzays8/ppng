@@ -40,6 +40,11 @@ def decode_png(f: io.BufferedReader) -> None:
             IDAT_chunk_data.write(data)
         elif type == 'IEND':
             break
+        elif type == 'tEXt':
+            keyword, text = data.split(b'\x00', 1)
+            print(f'tEXt Keyword: {keyword.decode("utf-8")}')
+            if len(text) > 0:
+                print(f'\ttEXt Text: {text.decode("latin-1")}')
         else:
             print(f'Chunk "{type}" is not supported')
             # sys.exit(1)
