@@ -4,8 +4,6 @@ import zlib
 import numpy as np
 import cv2
 from typing import Tuple
-# from PIL import Image
-# import matplotlib.pyplot as plt
 
 def decode_png(f: io.BufferedReader) -> None:
     if not validate_header(f):
@@ -269,26 +267,3 @@ def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
         sys.exit(1)
 
     return width, height, bit_depth, color_type, compression_method, filter_method, interlace_method
-
-def main(argv: list[str]) -> int | None:
-    def usage():
-        print(f'usage: {argv[0]} <file>')
-        return
-
-    if len(argv) != 2:
-        return usage()
-
-    try:
-        with open(argv[1], 'rb') as f:
-            decode_png(f)
-        return
-    except FileNotFoundError:
-        print(f'File not found: {argv[1]}')
-    except PermissionError:
-        print(f'Permission denied: {argv[1]}')
-    except Exception as e:
-        print(e)
-    return 1
-
-if __name__ == '__main__':
-    sys.exit(main(sys.argv))
