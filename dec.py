@@ -11,23 +11,8 @@ def decode_png(f: io.BufferedReader) -> None:
     if not validate_header(f):
         sys.exit(1)
 
-    length, type, data, crc = read_chunk(f)
-    if type == 'IHDR':
-        if length != 13:
-            print('Invalid IHDR chunk')
-            sys.exit(1)
-        width, height = map(int.from_bytes, (data[0:4], data[4:8]))
-        bit_depth, color_type, compression_method, filter_method, interlace_method\
-            = data[8], data[9], data[10], data[11], data[12]
-        print(f'Image size: {width}x{height}')
-        print(f'Bit depth: {bit_depth}')
-        print(f'Color type: {color_type}')
-        print(f'Compression method: {compression_method}')
-        print(f'Filter method: {filter_method}')
-        print(f'Interlace method: {interlace_method}')
-    else:
-        print('Invalid IHDR chunk')
-        sys.exit(1)
+    width, height, bit_depth, color_type, compression_method, filter_method, interlace_method\
+        = read_IHDR(f)
 
     IDAT_chunk_data = io.BytesIO()
 
@@ -60,6 +45,88 @@ def decode_png(f: io.BufferedReader) -> None:
     bytes_per_pixel = get_bytes_per_pixel(color_type, bit_depth)
     print(f'Bytes per pixel: {bytes_per_pixel}')
 
+    color_data = restore_filtered_image(decompressed_data, width, height, bytes_per_pixel)
+    adjusted_image_data = adjust_color_data(color_data, height, width, color_type, bit_depth)
+    show_image(adjusted_image_data)
+
+def adjust_color_data(color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
+    new_color_data: np.ndarray = None
+
+    if color_type == 0:
+        # grayscale
+        if bit_depth == 8:
+            new_color_data = color_data.reshape(height, width)
+        elif bit_depth == 16:
+            new_color_data = np.ndarray(shape=(height, width), dtype=np.uint16)
+            for i in range(height):
+                for j in range(width):
+                    new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
+        elif bit_depth == 1 or bit_depth == 2 or bit_depth == 4:
+            print(f'{bit_depth} bit for color type {color_type} is not implemented')
+            sys.exit(1)
+        else:
+            print(f'{bit_depth} bit for color type {color_type} is not allowed')
+            sys.exit(1)
+    elif color_type == 2:
+        # RGB
+        if bit_depth == 8:
+            new_color_data = color_data.reshape(height, width, 3)
+        elif bit_depth == 16:
+            new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
+            for i in range(height):
+                for j in range(width):
+                    new_color_data[i][j][0] = color_data[i][j * 6] << 8 |  color_data[i][j * 6 + 1]
+                    new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
+                    new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
+        else:
+            print(f'{bit_depth} bit for color type {color_type} is not allowed')
+            sys.exit(1)
+    elif color_type == 3:
+        # palette index
+        print(f'Not implemented {color_type}')
+        sys.exit(1)
+    elif color_type == 4:
+        # grayscale + alpha
+        if bit_depth == 8:
+            color_data = color_data.reshape(height, width, 2)
+            r = g = b = color_data[:, :, 0] # grayscale
+            a = color_data[:, :, 1]         # alpha
+            new_color_data = np.dstack((r, g, b, a))
+        elif bit_depth == 16:
+            new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+            for i in range(height):
+                for j in range(width):
+                    gray : np.uint16 = color_data[i][j * 4] << 8 |  color_data[i][j * 4 + 1]
+                    alpha : np.uint16 = color_data[i][j * 4 + 2] << 8 |  color_data[i][j * 4 + 3]
+                    new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
+                    new_color_data[i][j][3] = alpha
+        else:
+            print(f'{bit_depth} bit for color type {color_type} is not allowed')
+            sys.exit(1)
+    elif color_type == 6:
+        # RGB + alpha
+        if bit_depth == 8:
+            new_color_data = color_data.reshape(height, width, 4)
+        elif bit_depth == 16:
+            new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+            for i in range(height):
+                for j in range(width):
+                    new_color_data[i][j][0] = color_data[i][j * 8] << 8 |  color_data[i][j * 8 + 1]
+                    new_color_data[i][j][1] = color_data[i][j * 8 + 2] << 8 |  color_data[i][j * 8 + 3]
+                    new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
+                    new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
+        else:
+            print(f'{bit_depth} bit for color type {color_type} is not allowed')
+            sys.exit(1)
+    else:
+        print(f'Color type {color_type} is not allowed')
+        sys.exit(1)
+
+    assert new_color_data is not None, 'new_color_data is None'
+
+    return new_color_data
+
+def restore_filtered_image(decompressed_data: bytes, width: int, height: int, bytes_per_pixel: int) -> np.ndarray:
     color_data = np.ndarray(shape=(height, bytes_per_pixel * width), dtype=np.uint8)
 
     for i in range(height):
@@ -121,84 +188,7 @@ def decode_png(f: io.BufferedReader) -> None:
             print(f'Unsupported filter type: {filter_type}')
             sys.exit(1)
 
-    # Show image
-    if color_type == 0:
-        # grayscale
-        if bit_depth == 8:
-            color_data = color_data.reshape(height, width)
-            show_image(color_data)
-        elif bit_depth == 16:
-            new_color_data = np.ndarray(shape=(height, width), dtype=np.uint16)
-            for i in range(height):
-                for j in range(width):
-                    new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
-            show_image(new_color_data)
-        elif bit_depth == 1 or bit_depth == 2 or bit_depth == 4:
-            print(f'{bit_depth} bit for color type {color_type} is not implemented')
-            sys.exit(1)
-        else:
-            print(f'{bit_depth} bit for color type {color_type} is not allowed')
-            sys.exit(1)
-    elif color_type == 2:
-        # RGB
-        if bit_depth == 8:
-            color_data = color_data.reshape(height, width, 3)
-            show_image(color_data)
-        elif bit_depth == 16:
-            new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
-            for i in range(height):
-                for j in range(width):
-                    new_color_data[i][j][0] = color_data[i][j * 6] << 8 |  color_data[i][j * 6 + 1]
-                    new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
-                    new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
-            show_image(new_color_data)
-        else:
-            print(f'{bit_depth} bit for color type {color_type} is not allowed')
-            sys.exit(1)
-    elif color_type == 3:
-        # palette index
-        print(f'Not implemented {color_type}')
-        sys.exit(1)
-    elif color_type == 4:
-        # grayscale + alpha
-        if bit_depth == 8:
-            color_data = color_data.reshape(height, width, 2)
-            r = g = b = color_data[:, :, 0] # grayscale
-            a = color_data[:, :, 1]         # alpha
-            color_data = np.dstack((r, g, b, a))
-            show_image(color_data)
-        elif bit_depth == 16:
-            new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
-            for i in range(height):
-                for j in range(width):
-                    gray : np.uint16 = color_data[i][j * 4] << 8 |  color_data[i][j * 4 + 1]
-                    alpha : np.uint16 = color_data[i][j * 4 + 2] << 8 |  color_data[i][j * 4 + 3]
-                    new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
-                    new_color_data[i][j][3] = alpha
-            show_image(new_color_data)
-        else:
-            print(f'{bit_depth} bit for color type {color_type} is not allowed')
-            sys.exit(1)
-    elif color_type == 6:
-        # RGB + alpha
-        if bit_depth == 8:
-            color_data = color_data.reshape(height, width, 4)
-            show_image(color_data)
-        elif bit_depth == 16:
-            new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
-            for i in range(height):
-                for j in range(width):
-                    new_color_data[i][j][0] = color_data[i][j * 8] << 8 |  color_data[i][j * 8 + 1]
-                    new_color_data[i][j][1] = color_data[i][j * 8 + 2] << 8 |  color_data[i][j * 8 + 3]
-                    new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
-                    new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
-            show_image(new_color_data)
-        else:
-            print(f'{bit_depth} bit for color type {color_type} is not allowed')
-            sys.exit(1)
-    else:
-        print(f'Color type {color_type} is not allowed')
-        sys.exit(1)
+    return color_data
 
 def decompress(data: io.BytesIO) -> bytes:
     decompressor = zlib.decompressobj()
@@ -258,6 +248,27 @@ def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
     chunk_crc = f.read(4)
 
     return chunk_length, chunk_type, chunk_data, chunk_crc
+
+def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
+    length, type, data, crc = read_chunk(f)
+    if type == 'IHDR':
+        if length != 13:
+            print('Invalid IHDR chunk')
+            sys.exit(1)
+        width, height = map(int.from_bytes, (data[0:4], data[4:8]))
+        bit_depth, color_type, compression_method, filter_method, interlace_method\
+            = data[8], data[9], data[10], data[11], data[12]
+        print(f'Image size: {width}x{height}')
+        print(f'Bit depth: {bit_depth}')
+        print(f'Color type: {color_type}')
+        print(f'Compression method: {compression_method}')
+        print(f'Filter method: {filter_method}')
+        print(f'Interlace method: {interlace_method}')
+    else:
+        print('Invalid IHDR chunk')
+        sys.exit(1)
+
+    return width, height, bit_depth, color_type, compression_method, filter_method, interlace_method
 
 def main(argv: list[str]) -> int | None:
     def usage():
