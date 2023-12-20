@@ -2,8 +2,8 @@
 
 set -eu
 
-readonly ORIG_IMAGE_PATH='image/mandrill.tiff'
-readonly DEST_DIR_PATH='image/mandrill'
+readonly ORIG_IMAGE_PATH='tests/image/mandrill.tiff'
+readonly DEST_DIR_PATH='tests/image/mandrill'
 
 if [ ! -d $DEST_DIR_PATH ]; then
     mkdir $DEST_DIR_PATH
