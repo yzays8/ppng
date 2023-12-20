@@ -1,6 +1,6 @@
 import sys
 
-from pngd.decoder import decode_png
+import pngd
 
 def main(argv: list[str]) -> int | None:
     def usage():
@@ -12,7 +12,7 @@ def main(argv: list[str]) -> int | None:
 
     try:
         with open(argv[1], 'rb') as f:
-            decode_png(f)
+            pngd.decode_png(f)
         return
     except FileNotFoundError:
         print(f'File not found: {argv[1]}')

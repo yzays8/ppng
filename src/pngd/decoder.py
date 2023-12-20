@@ -1,8 +1,11 @@
 import sys
 import io
-import zlib
 import numpy as np
-import cv2
+
+from . import crc32
+from . import decompressor
+from . import viewer
+
 from typing import Tuple
 
 def decode_png(f: io.BufferedReader) -> None:
@@ -16,7 +19,7 @@ def decode_png(f: io.BufferedReader) -> None:
 
     while True:
         length, type, data, crc = read_chunk(f)
-        if not check_crc32(type, data, crc):
+        if not crc32.check_crc32(type, data, crc):
             sys.exit(1)
 
         if type == 'IDAT':
@@ -41,14 +44,14 @@ def decode_png(f: io.BufferedReader) -> None:
 
     print(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB')
 
-    decompressed_data = decompress(IDAT_chunk_data)
+    decompressed_data = decompressor.decompress(IDAT_chunk_data)
 
     bytes_per_pixel = get_bytes_per_pixel(color_type, bit_depth)
     print(f'Bytes per pixel: {bytes_per_pixel}')
 
     color_data = restore_filtered_image(decompressed_data, width, height, bytes_per_pixel)
     adjusted_image_data = adjust_color_data(color_data, height, width, color_type, bit_depth)
-    show_image(adjusted_image_data)
+    viewer.show_image(adjusted_image_data)
 
 def adjust_color_data(color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
     new_color_data: np.ndarray = None
@@ -191,31 +194,6 @@ def restore_filtered_image(decompressed_data: bytes, width: int, height: int, by
 
     return color_data
 
-def decompress(data: io.BytesIO) -> bytes:
-    decompressor = zlib.decompressobj()
-    decompressed_data = decompressor.decompress(data.getbuffer())
-    print(f'Decompressed data size: {len(decompressed_data) / 1024} KB')
-    return decompressed_data
-
-def show_image(color_data: np.ndarray) -> None:
-    # cv2 allows only BGR format
-    new_color_data = cv2.cvtColor(color_data, cv2.COLOR_RGB2BGR)
-
-    cv2.imshow('image', new_color_data)
-    while True:
-        # Wait for 100ms
-        key = cv2.waitKey(100)
-
-        # Quit if 'q' or ESC is pressed
-        if key == ord('q') or key == 27:
-            cv2.destroyAllWindows()
-            break
-        # Quit if the window is closed
-        if cv2.getWindowProperty('image', cv2.WND_PROP_VISIBLE) < 1:
-            break
-
-    cv2.destroyAllWindows()
-
 def get_bytes_per_pixel(color_type: int, bit_depth: int) -> int:
     if color_type == 0:
         # grayscale
@@ -252,7 +230,7 @@ def read_chunk(f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
 
 def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
     length, type, data, crc = read_chunk(f)
-    if not check_crc32(type, data, crc):
+    if not crc32.check_crc32(type, data, crc):
         sys.exit(1)
 
     if type == 'IHDR':
@@ -273,34 +251,3 @@ def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
         sys.exit(1)
 
     return width, height, bit_depth, color_type, compression_method, filter_method, interlace_method
-
-def check_crc32(type: str, data: bytes, crc: int) -> bool:
-    # CRC32 checksum for PNG chunks is calculated from the chunk type and chunk data.
-    # 4 bytes 0x00 is appended to the end of the data to ensure that the data is longer than the polynomial.
-    orig_data = type.encode('utf-8') + data + b'\x00' * 4
-
-    # x32 + x26 + x23 + x22 + x16 + x12 + x11 + x10 + x8 + x7 + x5 + x4 + x2 + x + 1
-    POLY = 0xEDB88320
-
-    calc_crc = 0x00000000
-
-    for i, byte in enumerate(orig_data):
-        # Invert the first 4 bytes to prevent them from being ignored if they are 0x00.
-        if i < 4:
-            byte ^= 0xFF
-
-        # The data is poured in from the MSB of calc_crc.
-        for _ in range(8):
-            flag = calc_crc & 1 == 1
-            calc_crc >>= 1
-            if byte & 1 == 1:
-                calc_crc |= 0x80000000
-            byte >>= 1
-            if flag:
-                calc_crc ^= POLY
-    calc_crc ^= 0xFFFFFFFF
-
-    if calc_crc != crc:
-        print(f'Invalid CRC for chunk "{type}" (expected: {hex(crc)}, actual: {hex(calc_crc)})')
-        return False
-    return True
