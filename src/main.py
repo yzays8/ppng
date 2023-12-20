@@ -1,6 +1,6 @@
 import sys
 
-from decoder import decode_png
+from pngd.decoder import decode_png
 
 def main(argv: list[str]) -> int | None:
     def usage():
