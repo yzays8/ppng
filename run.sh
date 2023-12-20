@@ -14,6 +14,6 @@ cd src
 if [[ -z "$@" ]]; then
     python3 main.py
 else
-    python3 main.py "$@"
+    python3 main.py ../"$@"
 fi
 deactivate
