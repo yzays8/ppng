@@ -8,7 +8,7 @@ from . import viewer
 
 from typing import Tuple
 
-def decode_png(f: io.BufferedReader) -> None:
+def decode_png(f: io.BufferedReader) -> np.ndarray:
     if not validate_header(f):
         sys.exit(1)
 
@@ -50,8 +50,8 @@ def decode_png(f: io.BufferedReader) -> None:
     print(f'Bytes per pixel: {bytes_per_pixel}')
 
     color_data = restore_filtered_image(decompressed_data, width, height, bytes_per_pixel)
-    adjusted_image_data = adjust_color_data(color_data, height, width, color_type, bit_depth)
-    viewer.show_image(adjusted_image_data)
+
+    return adjust_color_data(color_data, height, width, color_type, bit_depth)
 
 def adjust_color_data(color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
     new_color_data: np.ndarray = None

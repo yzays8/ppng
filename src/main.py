@@ -13,7 +13,8 @@ def main(argv: list[str]) -> int | None:
 
     try:
         with open(argv[1], 'rb') as f:
-            pngd.decode_png(f)
+            image = pngd.decode_png(f)
+            pngd.show_image(image)
         return
     except FileNotFoundError:
         print(f'File not found: {os.path.abspath(argv[1])}')
