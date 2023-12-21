@@ -26,21 +26,26 @@ def assert_image(path: str) -> None:
     try:
         with open(path, 'rb') as f:
             dec_data = decode_png(f)
-            if dec_data.shape[2] == 3:
-                actual = cv2.cvtColor(dec_data, cv2.COLOR_RGB2BGR)
-            elif dec_data.shape[2] == 4:
-                actual = cv2.cvtColor(dec_data, cv2.COLOR_RGBA2BGRA)
+            if dec_data.ndim == 3:
+                # if the shape of dec_data is (height, width, channel)
+                if dec_data.shape[2] == 3:
+                    actual = cv2.cvtColor(dec_data, cv2.COLOR_RGB2BGR)
+                elif dec_data.shape[2] == 4:
+                    actual = cv2.cvtColor(dec_data, cv2.COLOR_RGBA2BGRA)
+                else:
+                    assert False
             else:
-                assert False
+                # if dec_data is mono-color and shape is just (height, width)
+                actual = dec_data
             assert_type(expected, actual)
             assert_shape(expected, actual)
             assert_data(expected, actual)
     except FileNotFoundError:
-        print(f'File not found: {os.path.abspath(path)}')
+        raise FileNotFoundError(f'File not found: {os.path.abspath(path)}')
     except AssertionError as ae:
         raise AssertionError(f'{os.path.abspath(path)} {ae}')
     except Exception as e:
-        print(e)
+        raise e
 
 def test_decode():
     is_logging(False)
@@ -48,8 +53,8 @@ def test_decode():
         # assert_image(TEST_DIR + '/type0-1bit.png')
         # assert_image(TEST_DIR + '/type0-2bit.png')
         # assert_image(TEST_DIR + '/type0-4bit.png')
-        # assert_image(TEST_DIR + '/type0-8bit.png')
-        # assert_image(TEST_DIR + '/type0-16bit.png')
+        assert_image(TEST_DIR + '/type0-8bit.png')
+        assert_image(TEST_DIR + '/type0-16bit.png')
         assert_image(TEST_DIR + '/type2-8bit.png')
         assert_image(TEST_DIR + '/type2-16bit.png')
         assert_image(TEST_DIR + '/type4-8bit.png')
