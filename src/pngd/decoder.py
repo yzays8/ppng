@@ -4,9 +4,14 @@ import numpy as np
 
 from . import crc32
 from . import decompressor
-from . import viewer
 
 from typing import Tuple
+
+logging = False
+
+def is_logging(set: bool) -> None:
+    global logging
+    logging = set
 
 def decode_png(f: io.BufferedReader) -> np.ndarray:
     if not validate_header(f):
@@ -28,26 +33,27 @@ def decode_png(f: io.BufferedReader) -> np.ndarray:
             break
         elif type == 'tEXt':
             keyword, text = data.split(b'\x00', 1)
-            print(f'tEXt Keyword: {keyword.decode("utf-8")}')
+            print(f'tEXt Keyword: {keyword.decode("utf-8")}') if logging else None
             if len(text) > 0:
-                print(f'\ttEXt Text: {text.decode("latin-1")}')
+                print(f'\ttEXt Text: {text.decode("latin-1")}') if logging else None
         elif type == 'tIME':
             if length != 7:
-                print('Invalid tIME chunk')
+                print('Invalid tIME chunk') if logging else None
                 sys.exit(1)
             year, month, day, hour, minute, second\
                 = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
-            print(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}')
+            print(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}') if logging else None
         else:
-            print(f'Chunk "{type}" is not supported')
+            print(f'Chunk "{type}" is not supported') if logging else None
             # sys.exit(1)
 
-    print(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB')
+    print(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB') if logging else None
 
     decompressed_data = decompressor.decompress(IDAT_chunk_data)
+    print(f'Decompressed data size: {len(decompressed_data) / 1024} KB') if logging else None
 
     bytes_per_pixel = get_bytes_per_pixel(color_type, bit_depth)
-    print(f'Bytes per pixel: {bytes_per_pixel}')
+    print(f'Bytes per pixel: {bytes_per_pixel}') if logging else None
 
     color_data = restore_filtered_image(decompressed_data, width, height, bytes_per_pixel)
 
@@ -240,12 +246,13 @@ def read_IHDR(f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
         width, height = map(int.from_bytes, (data[0:4], data[4:8]))
         bit_depth, color_type, compression_method, filter_method, interlace_method\
             = data[8], data[9], data[10], data[11], data[12]
-        print(f'Image size: {width}x{height}')
-        print(f'Bit depth: {bit_depth}')
-        print(f'Color type: {color_type}')
-        print(f'Compression method: {compression_method}')
-        print(f'Filter method: {filter_method}')
-        print(f'Interlace method: {interlace_method}')
+        if logging:
+            print(f'Image size: {width}x{height}')
+            print(f'Bit depth: {bit_depth}')
+            print(f'Color type: {color_type}')
+            print(f'Compression method: {compression_method}')
+            print(f'Filter method: {filter_method}')
+            print(f'Interlace method: {interlace_method}')
     else:
         print('Invalid IHDR chunk')
         sys.exit(1)
