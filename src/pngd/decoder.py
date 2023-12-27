@@ -22,6 +22,8 @@ def decode_png(f: io.BufferedReader) -> np.ndarray:
 
     IDAT_chunk_data = io.BytesIO()
 
+    gamma: float | None = None
+
     while True:
         length, type, data, crc = read_chunk(f)
         if not crc32.check_crc32(type, data, crc):
@@ -43,6 +45,13 @@ def decode_png(f: io.BufferedReader) -> np.ndarray:
             year, month, day, hour, minute, second\
                 = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
             print(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}') if logging else None
+        elif type == 'gAMA':
+            if length != 4:
+                print('Invalid gAMA chunk') if logging else None
+                sys.exit(1)
+            # The data is a 4-byte unsigned integer, representing gamma times 100000 and rounded to the nearest integer.
+            gamma = int.from_bytes(data) / 100000
+            print(f'gAMA: {gamma}') if logging else None
         else:
             print(f'Chunk "{type}" is not supported') if logging else None
             # sys.exit(1)
@@ -56,8 +65,44 @@ def decode_png(f: io.BufferedReader) -> np.ndarray:
     print(f'Bytes per pixel: {bytes_per_pixel}') if logging else None
 
     color_data = restore_filtered_image(decompressed_data, width, height, bytes_per_pixel)
+    ret_data = adjust_color_data(color_data, height, width, color_type, bit_depth)
 
-    return adjust_color_data(color_data, height, width, color_type, bit_depth)
+    if gamma is not None:
+        ret_data = gamma_correction(ret_data, color_type, bit_depth, gamma)
+
+    return ret_data
+
+def gamma_correction(color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
+    # If gamma is 0.45455, gamma corrected value is same as original value
+    if gamma != 0.45455:
+        lut_exp = 1.0
+        crt_exp = 2.2
+        decoding_exp = 1 / (gamma * lut_exp * crt_exp)
+
+        # Create gamma table
+        if bit_depth == 8:
+            gamma_table = np.array([int(pow(i / 255, decoding_exp) * 255) for i in range(256)])
+        elif bit_depth == 16:
+            gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
+        else:
+            print(f'{bit_depth} bit is not allowed for gamma correction')
+
+        if color_type == 2 or color_type == 6:
+            if bit_depth == 8 or bit_depth == 16:
+                # Alpha channel is not gamma corrected
+                color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
+                color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
+                color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
+            else:
+                assert False, f'{bit_depth} bit for color type {color_type} is not allowed'
+        elif color_type == 3:
+            print(f'Not implemented {color_type}')
+        elif color_type == 0 or color_type == 4:
+            print(f'{color_type} is not allowed for gamma correction')
+        else:
+            assert False
+
+    return color_data
 
 def adjust_color_data(color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
     new_color_data: np.ndarray = None
