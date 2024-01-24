@@ -68,11 +68,11 @@ def decode_png(f: io.BufferedReader) -> np.ndarray:
     ret_data = adjust_color_data(color_data, height, width, color_type, bit_depth)
 
     if gamma is not None:
-        ret_data = gamma_correction(ret_data, color_type, bit_depth, gamma)
+        ret_data = gamma_correct(ret_data, color_type, bit_depth, gamma)
 
     return ret_data
 
-def gamma_correction(color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
+def gamma_correct(color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
     # If gamma is 0.45455, gamma corrected value is same as original value
     if gamma != 0.45455:
         lut_exp = 1.0
