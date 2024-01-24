@@ -10,10 +10,5 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 source "$VENV_DIR/bin/activate"
-
-python3 test_crc32.py
-python3 test_decode.py
-
-echo "All tests passed"
-
+pytest
 deactivate

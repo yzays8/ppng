@@ -7,64 +7,63 @@ ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
 from src.pngd.decoder import decode_png, is_logging
 
-TEST_DIR = os.path.join(ROOT_PATH, 'tests/image/mandrill')
+class TestDecode:
+    TEST_DIR = os.path.join(ROOT_PATH, 'tests/image/mandrill/')
 
-def assert_equal_type(expected: np.ndarray, actual: np.ndarray) -> None:
-    if expected.dtype != actual.dtype:
-        raise AssertionError(f'Type (expected: {expected.dtype}, actual: {actual.dtype})')
-
-def assert_equal_shape(expected: np.ndarray, actual: np.ndarray) -> None:
-    if expected.shape != actual.shape:
-        raise AssertionError(f'Shape (expected: {expected.shape}, actual: {actual.shape})')
-
-def assert_equal_data(expected: np.ndarray, actual: np.ndarray) -> None:
-    if not np.array_equal(expected, actual):
-        raise AssertionError(f'Data')
-
-def assert_equal_image(path: str) -> None:
-    expected = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    try:
-        with open(path, 'rb') as f:
-            dec_data = decode_png(f)
-            if dec_data.ndim == 3:
-                # if the shape of dec_data is (height, width, channel)
-                if dec_data.shape[2] == 3:
-                    actual = cv2.cvtColor(dec_data, cv2.COLOR_RGB2BGR)
-                elif dec_data.shape[2] == 4:
-                    actual = cv2.cvtColor(dec_data, cv2.COLOR_RGBA2BGRA)
+    def assert_equal_image(self, file_name: str) -> None:
+        is_logging(False)
+        file_name = self.TEST_DIR + file_name
+        expected = cv2.imread(file_name, cv2.IMREAD_UNCHANGED)
+        try:
+            with open(file_name, 'rb') as f:
+                dec_data = decode_png(f)
+                if dec_data.ndim == 3:
+                    # if the shape of dec_data is (height, width, channel)
+                    if dec_data.shape[2] == 3:
+                        actual = cv2.cvtColor(dec_data, cv2.COLOR_RGB2BGR)
+                    elif dec_data.shape[2] == 4:
+                        actual = cv2.cvtColor(dec_data, cv2.COLOR_RGBA2BGRA)
+                    else:
+                        assert False
                 else:
-                    assert False
-            else:
-                # if dec_data is mono-color and shape is just (height, width)
-                actual = dec_data
-            assert_equal_type(expected, actual)
-            assert_equal_shape(expected, actual)
-            assert_equal_data(expected, actual)
-    except FileNotFoundError:
-        raise FileNotFoundError(f'File not found: {os.path.abspath(path)}')
-    except AssertionError as ae:
-        raise AssertionError(f'{os.path.abspath(path)} {ae}')
-    except Exception as e:
-        raise e
+                    # if dec_data is mono-color and shape is just (height, width)
+                    actual = dec_data
 
-def test_decode():
-    is_logging(False)
-    try:
-        # assert_image(TEST_DIR + '/type0-1bit.png')
-        # assert_image(TEST_DIR + '/type0-2bit.png')
-        # assert_image(TEST_DIR + '/type0-4bit.png')
-        assert_equal_image(TEST_DIR + '/type0-8bit.png')
-        assert_equal_image(TEST_DIR + '/type0-16bit.png')
-        assert_equal_image(TEST_DIR + '/type2-8bit.png')
-        assert_equal_image(TEST_DIR + '/type2-16bit.png')
-        assert_equal_image(TEST_DIR + '/type4-8bit.png')
-        assert_equal_image(TEST_DIR + '/type4-16bit.png')
-        assert_equal_image(TEST_DIR + '/type6-8bit.png')
-        assert_equal_image(TEST_DIR + '/type6-16bit.png')
-    except AssertionError as ae:
-        print(f'Failed: {ae}')
-    except Exception as e:
-        print(e)
+                assert expected.dtype == actual.dtype
+                assert expected.shape == actual.shape
+                assert np.array_equal(expected, actual)
+        except FileNotFoundError:
+            raise FileNotFoundError(f'File not found: {os.path.abspath(file_name)}')
 
-if __name__ == '__main__':
-    test_decode()
+    # def test_type0_1bit(self):
+    #     self.assert_equal_image('type0-1bit.png')
+
+    # def test_type0_2bit(self):
+    #     self.assert_equal_image('type0-2bit.png')
+
+    # def test_type0_4bit(self):
+    #     self.assert_equal_image('type0-4bit.png')
+
+    def test_type0_8bit(self):
+        self.assert_equal_image('type0-8bit.png')
+
+    def test_type0_16bit(self):
+        self.assert_equal_image('type0-16bit.png')
+
+    def test_type2_8bit(self):
+        self.assert_equal_image('type2-8bit.png')
+
+    def test_type2_16bit(self):
+        self.assert_equal_image('type2-16bit.png')
+
+    def test_type4_8bit(self):
+        self.assert_equal_image('type4-8bit.png')
+
+    def test_type4_16bit(self):
+        self.assert_equal_image('type4-16bit.png')
+
+    def test_type6_8bit(self):
+        self.assert_equal_image('type6-8bit.png')
+
+    def test_type6_16bit(self):
+        self.assert_equal_image('type6-16bit.png')
