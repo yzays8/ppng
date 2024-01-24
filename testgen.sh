@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -eu
+cd $(dirname $0)
 
 readonly ORIG_IMAGE_PATH='tests/image/mandrill.tiff'
 readonly DEST_DIR_PATH='tests/image/mandrill'

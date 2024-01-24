@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -eu
+cd $(dirname $0)
 
 readonly VENV_DIR='.venv'
 
