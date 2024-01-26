@@ -15,7 +15,7 @@ def main(argv: list[str]) -> int | None:
         with open(argv[1], 'rb') as f:
             decoder = pngd.Decoder(is_logging=True)
             image = decoder.decode_png(f)
-            pngd.show_image(image)
+            pngd.show_image(image, os.path.basename(argv[1]))
         return
     except FileNotFoundError:
         print(f'File not found: {os.path.abspath(argv[1])}')
