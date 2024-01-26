@@ -13,8 +13,8 @@ def main(argv: list[str]) -> int | None:
 
     try:
         with open(argv[1], 'rb') as f:
-            pngd.is_logging(True)
-            image = pngd.decode_png(f)
+            decoder = pngd.Decoder(is_logging=True)
+            image = decoder.decode_png(f)
             pngd.show_image(image)
         return
     except FileNotFoundError:
