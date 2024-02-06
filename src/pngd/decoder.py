@@ -62,7 +62,6 @@ class Decoder:
                     logger.info(f'gAMA: {gamma}')
                 case _:
                     logger.warning(f'Chunk "{type}" is not supported')
-                    # sys.exit(1)
 
         logger.info(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB')
 
@@ -85,105 +84,112 @@ class Decoder:
             decoding_exp = 1 / (gamma * lut_exp * crt_exp)
 
             # Create gamma table
-            if bit_depth == 8:
-                gamma_table = np.array([int(pow(i / 255, decoding_exp) * 255) for i in range(256)])
-            elif bit_depth == 16:
-                gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
-            else:
-                logger.error(f'{bit_depth} bit is not allowed for gamma correction')
-                sys.exit(1)
+            match bit_depth:
+                case 8:
+                    gamma_table = np.array([int(pow(i / 255, decoding_exp) * 255) for i in range(256)])
+                case 16:
+                    gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
+                case _:
+                    logger.error(f'{bit_depth} bit is not allowed for gamma correction')
+                    sys.exit(1)
 
-            if color_type == 2 or color_type == 6:
-                if bit_depth == 8 or bit_depth == 16:
-                    # Alpha channel is not gamma corrected
-                    color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
-                    color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
-                    color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
-                else:
-                    assert False, f'{bit_depth} bit for color type {color_type} is not allowed'
-            elif color_type == 3:
-                logger.error(f'Not implemented color type {color_type}')
-                sys.exit(1)
-            elif color_type == 0 or color_type == 4:
-                logger.error(f'{color_type} is not allowed for gamma correction')
-                sys.exit(1)
-            else:
-                assert False
+            match color_type:
+                case 2 | 6 | 8 | 16:
+                    if bit_depth == 8 or bit_depth == 16:
+                        # Alpha channel is not gamma corrected
+                        color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
+                        color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
+                        color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
+                    else:
+                        assert False, f'{bit_depth} bit for color type {color_type} is not allowed'
+                case 3:
+                    logger.error(f'Not implemented color type {color_type}')
+                    sys.exit(1)
+                case 0 | 4:
+                    logger.error(f'{color_type} is not allowed for gamma correction')
+                    sys.exit(1)
+                case _:
+                    assert False
 
         return color_data
 
     def _adjust_color_data(self, color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
         new_color_data: np.ndarray = None
 
-        if color_type == 0:
-            # grayscale
-            if bit_depth == 8:
-                new_color_data = color_data.reshape(height, width)
-            elif bit_depth == 16:
-                new_color_data = np.ndarray(shape=(height, width), dtype=np.uint16)
-                for i in range(height):
-                    for j in range(width):
-                        new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
-            elif bit_depth == 1 or bit_depth == 2 or bit_depth == 4:
-                logger.error(f'{bit_depth} bit for color type {color_type} is not implemented')
+        match color_type:
+            case 0:
+                # grayscale
+                match bit_depth:
+                    case 8:
+                        new_color_data = color_data.reshape(height, width)
+                    case 16:
+                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint16)
+                        for i in range(height):
+                            for j in range(width):
+                                new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
+                    case 1 | 2 | 4:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not implemented')
+                        sys.exit(1)
+                    case _:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
+            case 2:
+                # RGB
+                match bit_depth:
+                    case 8:
+                        new_color_data = color_data.reshape(height, width, 3)
+                    case 16:
+                        new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
+                        for i in range(height):
+                            for j in range(width):
+                                new_color_data[i][j][0] = color_data[i][j * 6] << 8 |  color_data[i][j * 6 + 1]
+                                new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
+                                new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
+                    case _:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
+            case 3:
+                # palette index
+                logger.error(f'Not implemented {color_type}')
                 sys.exit(1)
-            else:
-                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+            case 4:
+                # grayscale + alpha
+                match bit_depth:
+                    case 8:
+                        color_data = color_data.reshape(height, width, 2)
+                        r = g = b = color_data[:, :, 0] # grayscale
+                        a = color_data[:, :, 1]         # alpha
+                        new_color_data = np.dstack((r, g, b, a))
+                    case 16:
+                        new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        for i in range(height):
+                            for j in range(width):
+                                gray: np.uint16 = color_data[i][j * 4] << 8 |  color_data[i][j * 4 + 1]
+                                alpha: np.uint16 = color_data[i][j * 4 + 2] << 8 |  color_data[i][j * 4 + 3]
+                                new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
+                                new_color_data[i][j][3] = alpha
+                    case _:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
+            case 6:
+                # RGB + alpha
+                match bit_depth:
+                    case 8:
+                        new_color_data = color_data.reshape(height, width, 4)
+                    case 16:
+                        new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        for i in range(height):
+                            for j in range(width):
+                                new_color_data[i][j][0] = color_data[i][j * 8] << 8 |  color_data[i][j * 8 + 1]
+                                new_color_data[i][j][1] = color_data[i][j * 8 + 2] << 8 |  color_data[i][j * 8 + 3]
+                                new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
+                                new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
+                    case _:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
+            case _:
+                logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
-        elif color_type == 2:
-            # RGB
-            if bit_depth == 8:
-                new_color_data = color_data.reshape(height, width, 3)
-            elif bit_depth == 16:
-                new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
-                for i in range(height):
-                    for j in range(width):
-                        new_color_data[i][j][0] = color_data[i][j * 6] << 8 |  color_data[i][j * 6 + 1]
-                        new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
-                        new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
-            else:
-                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
-                sys.exit(1)
-        elif color_type == 3:
-            # palette index
-            logger.error(f'Not implemented {color_type}')
-            sys.exit(1)
-        elif color_type == 4:
-            # grayscale + alpha
-            if bit_depth == 8:
-                color_data = color_data.reshape(height, width, 2)
-                r = g = b = color_data[:, :, 0] # grayscale
-                a = color_data[:, :, 1]         # alpha
-                new_color_data = np.dstack((r, g, b, a))
-            elif bit_depth == 16:
-                new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
-                for i in range(height):
-                    for j in range(width):
-                        gray: np.uint16 = color_data[i][j * 4] << 8 |  color_data[i][j * 4 + 1]
-                        alpha: np.uint16 = color_data[i][j * 4 + 2] << 8 |  color_data[i][j * 4 + 3]
-                        new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
-                        new_color_data[i][j][3] = alpha
-            else:
-                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
-                sys.exit(1)
-        elif color_type == 6:
-            # RGB + alpha
-            if bit_depth == 8:
-                new_color_data = color_data.reshape(height, width, 4)
-            elif bit_depth == 16:
-                new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
-                for i in range(height):
-                    for j in range(width):
-                        new_color_data[i][j][0] = color_data[i][j * 8] << 8 |  color_data[i][j * 8 + 1]
-                        new_color_data[i][j][1] = color_data[i][j * 8 + 2] << 8 |  color_data[i][j * 8 + 3]
-                        new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
-                        new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
-            else:
-                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
-                sys.exit(1)
-        else:
-            logger.error(f'Color type {color_type} is not allowed')
-            sys.exit(1)
 
         assert new_color_data is not None, 'new_color_data is None'
 
@@ -198,84 +204,86 @@ class Decoder:
             filter_type = decompressed_data[line_start_index]
             data_start_index = line_start_index + 1
 
-            if filter_type == 0:    # No filter
-                for j in range(width * bytes_per_pixel):
-                    color_data[i][j] = decompressed_data[data_start_index + j]
-            elif filter_type == 1:  # Sub filter
-                for j in range(width * bytes_per_pixel):
-                    if j < bytes_per_pixel:
+            match filter_type:
+                case 0: # No filter
+                    for j in range(width * bytes_per_pixel):
+                        color_data[i][j] = decompressed_data[data_start_index + j]
+                case 1: # Sub filter
+                    for j in range(width * bytes_per_pixel):
+                        if j < bytes_per_pixel:
+                            pre = 0
+                        else:
+                            pre = color_data[i][j - bytes_per_pixel]
+
+                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                case 2: # Up filter
+                    for j in range(width * bytes_per_pixel):
+                        if i <= 0:
+                            pre = 0
+                        else:
+                            pre = color_data[i - 1][j]
+
+                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                case 3: # Average filter
+                    for j in range(width * bytes_per_pixel):
                         pre = 0
-                    else:
-                        pre = color_data[i][j - bytes_per_pixel]
+                        if j >= bytes_per_pixel and i > 0:
+                            pre = int((color_data[i][j - bytes_per_pixel]) + int(color_data[i - 1][j])) // 2
+                        elif j >= bytes_per_pixel:
+                            pre = color_data[i][j - bytes_per_pixel] // 2
+                        elif i > 0:
+                            pre = color_data[i - 1][j] // 2
 
-                    color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
-            elif filter_type == 2:  # Up filter
-                for j in range(width * bytes_per_pixel):
-                    if i <= 0:
-                        pre = 0
-                    else:
-                        pre = color_data[i - 1][j]
+                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                case 4: # Paeth filter
+                    for j in range(width * bytes_per_pixel):
+                        a = int(color_data[i][j - bytes_per_pixel]) if j >= bytes_per_pixel else 0                  # left
+                        b = int(color_data[i - 1][j]) if i > 0 else 0                                               # upper
+                        c = int(color_data[i - 1][j - bytes_per_pixel]) if i > 0 and j >= bytes_per_pixel else 0    # upper left
 
-                    color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
-            elif filter_type == 3:  # Average filter
-                for j in range(width * bytes_per_pixel):
-                    pre = 0
-                    if j >= bytes_per_pixel and i > 0:
-                        pre = int((color_data[i][j - bytes_per_pixel]) + int(color_data[i - 1][j])) // 2
-                    elif j >= bytes_per_pixel:
-                        pre = color_data[i][j - bytes_per_pixel] // 2
-                    elif i > 0:
-                        pre = color_data[i - 1][j] // 2
+                        # Find the value closest to the prediction from among a, b, c
+                        p = a + b - c
+                        pa = abs(p - a)
+                        pb = abs(p - b)
+                        pc = abs(p - c)
+                        if pa <= pb and pa <= pc:
+                            pr = a
+                        elif pb <= pc:
+                            pr = b
+                        else:
+                            pr = c
 
-                    color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
-            elif filter_type == 4: # Paeth filter
-                for j in range(width * bytes_per_pixel):
-                    a = int(color_data[i][j - bytes_per_pixel]) if j >= bytes_per_pixel else 0                  # left
-                    b = int(color_data[i - 1][j]) if i > 0 else 0                                               # upper
-                    c = int(color_data[i - 1][j - bytes_per_pixel]) if i > 0 and j >= bytes_per_pixel else 0    # upper left
-
-                    # Find the value closest to the prediction from among a, b, c
-                    p = a + b - c
-                    pa = abs(p - a)
-                    pb = abs(p - b)
-                    pc = abs(p - c)
-                    if pa <= pb and pa <= pc:
-                        pr = a
-                    elif pb <= pc:
-                        pr = b
-                    else:
-                        pr = c
-
-                    color_data[i][j] = (decompressed_data[data_start_index + j] + pr) % 256
-            else:
-                logger.error(f'Unsupported filter type: {filter_type}')
-                sys.exit(1)
+                        color_data[i][j] = (decompressed_data[data_start_index + j] + pr) % 256
+                case _:
+                    logger.error(f'Unsupported filter type: {filter_type}')
+                    sys.exit(1)
 
         return color_data
 
     def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int:
-        if color_type == 0:
-            # grayscale
-            bits_per_pixel = bit_depth
-        if color_type == 2:
-            # RGB
-            bits_per_pixel = bit_depth * 3
-        if color_type == 3:
-            # palette index
-            bits_per_pixel = bit_depth
-        if color_type == 4:
-            # grayscale + alpha
-            bits_per_pixel = bit_depth * 2
-        if color_type == 6:
-            # RGB + alpha
-            bits_per_pixel = bit_depth * 4
+        match color_type:
+            case 0:
+                # grayscale
+                bits_per_pixel = bit_depth
+            case 2:
+                # RGB
+                bits_per_pixel = bit_depth * 3
+            case 3:
+                # palette index
+                bits_per_pixel = bit_depth
+            case 4:
+                # grayscale + alpha
+                bits_per_pixel = bit_depth * 2
+            case 6:
+                # RGB + alpha
+                bits_per_pixel = bit_depth * 4
+            case _:
+                assert False, f'Unsupported color type: {color_type}'
 
         return int(bits_per_pixel / 8)
 
     def _validate_header(self, f: io.BufferedReader) -> bool:
-        if f.read(8) != b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A':
-            return False
-        return True
+        return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'
 
     def _read_chunk(self, f: io.BufferedReader) -> tuple[int, str, bytes, int]:
         # Big endian
