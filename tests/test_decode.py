@@ -10,7 +10,7 @@ from src.pngd.decoder import Decoder
 class TestDecode:
     TEST_DIR = os.path.join(ROOT_PATH, 'tests/image/mandrill/')
 
-    def assert_equal_image(self, file_name: str) -> None:
+    def _assert_equal_image(self, file_name: str) -> None:
         decoder = Decoder()
         file_name = self.TEST_DIR + file_name
         expected = cv2.imread(file_name, cv2.IMREAD_UNCHANGED)
@@ -36,34 +36,34 @@ class TestDecode:
             raise FileNotFoundError(f'File not found: {os.path.abspath(file_name)}')
 
     # def test_type0_1bit(self):
-    #     self.assert_equal_image('type0-1bit.png')
+    #     self._assert_equal_image('type0-1bit.png')
 
     # def test_type0_2bit(self):
-    #     self.assert_equal_image('type0-2bit.png')
+    #     self._assert_equal_image('type0-2bit.png')
 
     # def test_type0_4bit(self):
-    #     self.assert_equal_image('type0-4bit.png')
+    #     self._assert_equal_image('type0-4bit.png')
 
     def test_type0_8bit(self):
-        self.assert_equal_image('type0-8bit.png')
+        self._assert_equal_image('type0-8bit.png')
 
     def test_type0_16bit(self):
-        self.assert_equal_image('type0-16bit.png')
+        self._assert_equal_image('type0-16bit.png')
 
     def test_type2_8bit(self):
-        self.assert_equal_image('type2-8bit.png')
+        self._assert_equal_image('type2-8bit.png')
 
     def test_type2_16bit(self):
-        self.assert_equal_image('type2-16bit.png')
+        self._assert_equal_image('type2-16bit.png')
 
     def test_type4_8bit(self):
-        self.assert_equal_image('type4-8bit.png')
+        self._assert_equal_image('type4-8bit.png')
 
     def test_type4_16bit(self):
-        self.assert_equal_image('type4-16bit.png')
+        self._assert_equal_image('type4-16bit.png')
 
     def test_type6_8bit(self):
-        self.assert_equal_image('type6-8bit.png')
+        self._assert_equal_image('type6-8bit.png')
 
     def test_type6_16bit(self):
-        self.assert_equal_image('type6-16bit.png')
+        self._assert_equal_image('type6-16bit.png')

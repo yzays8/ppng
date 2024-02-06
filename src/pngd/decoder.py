@@ -2,68 +2,72 @@ import sys
 import io
 import numpy as np
 
-from typing import Tuple
-
 from toolz import pipe
+from loguru import logger
 
 from . import crc32
 from . import decompressor
 
 class Decoder:
-    def __init__(self, is_logging=False):
+    def __init__(self, is_logging: bool = False):
         self._is_logging = is_logging
 
-    def _log(self, msg: str, force=False) -> None:
-        if self._is_logging or force:
-            print(msg)
+        logger.remove()
+        logger.add(sys.stdout, filter=lambda record: self._is_logging)
+
+        # If a message higher than ERROR is logged while _is_logging is False, log it to stderr regardless of the logging flag
+        logger.add(sys.stderr, level='ERROR', filter=lambda record: not self._is_logging)
 
     def decode_png(self, f: io.BufferedReader) -> np.ndarray:
         if not self._validate_header(f):
+            logger.error('Invalid PNG image')
             sys.exit(1)
 
-        width, height, bit_depth, color_type, compression_method, filter_method, interlace_method\
+        width, height, bit_depth, color_type, compression_method, filter_method, interlace_method \
             = self._read_IHDR(f)
 
         IDAT_chunk_data = io.BytesIO()
 
-        gamma: float | None = None
+        gamma: float = None
 
         while True:
             length, type, data, crc = self._read_chunk(f)
             if not crc32.check_crc32(type, data, crc):
                 sys.exit(1)
 
-            if type == 'IDAT':
-                IDAT_chunk_data.write(data)
-            elif type == 'IEND':
-                break
-            elif type == 'tEXt':
-                keyword, text = data.split(b'\x00', 1)
-                self._log(f'tEXt Keyword: {keyword.decode("utf-8")}')
-                if len(text) > 0:
-                    self._log(f'\ttEXt Text: {text.decode("latin-1")}')
-            elif type == 'tIME':
-                if length != 7:
-                    self._log('Invalid tIME chunk')
-                    sys.exit(1)
-                year, month, day, hour, minute, second\
-                    = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
-                self._log(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}')
-            elif type == 'gAMA':
-                if length != 4:
-                    self._log('Invalid gAMA chunk')
-                    sys.exit(1)
-                # The data is a 4-byte unsigned integer, representing gamma times 100000 and rounded to the nearest integer.
-                gamma = int.from_bytes(data) / 100000
-                self._log(f'gAMA: {gamma}')
-            else:
-                self._log(f'Chunk "{type}" is not supported')
-                # sys.exit(1)
+            match type:
+                case 'IDAT':
+                    IDAT_chunk_data.write(data)
+                case 'IEND':
+                    break
+                case 'tEXt':
+                    keyword, text = data.split(b'\x00', 1)
+                    if len(text) > 0:
+                        logger.info(f'tEXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
+                    else:
+                        logger.info(f'tEXt: {keyword.decode("utf-8")}')
+                case 'tIME':
+                    if length != 7:
+                        logger.error('Invalid tIME chunk')
+                        sys.exit(1)
+                    year, month, day, hour, minute, second \
+                        = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
+                    logger.info(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}')
+                case 'gAMA':
+                    if length != 4:
+                        logger.error('Invalid gAMA chunk')
+                        sys.exit(1)
+                    # The data is a 4-byte unsigned integer, representing gamma times 100000 and rounded to the nearest integer.
+                    gamma = int.from_bytes(data) / 100000
+                    logger.info(f'gAMA: {gamma}')
+                case _:
+                    logger.warning(f'Chunk "{type}" is not supported')
+                    # sys.exit(1)
 
-        self._log(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB')
+        logger.info(f'All IDAT data size: {IDAT_chunk_data.getbuffer().nbytes / 1024} KB')
 
         bytes_per_pixel = self._get_bytes_per_pixel(color_type, bit_depth)
-        self._log(f'Bytes per pixel: {bytes_per_pixel}')
+        logger.info(f'Bytes per pixel: {bytes_per_pixel}')
 
         return pipe(
             IDAT_chunk_data,
@@ -86,7 +90,8 @@ class Decoder:
             elif bit_depth == 16:
                 gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
             else:
-                print(f'{bit_depth} bit is not allowed for gamma correction')
+                logger.error(f'{bit_depth} bit is not allowed for gamma correction')
+                sys.exit(1)
 
             if color_type == 2 or color_type == 6:
                 if bit_depth == 8 or bit_depth == 16:
@@ -97,9 +102,10 @@ class Decoder:
                 else:
                     assert False, f'{bit_depth} bit for color type {color_type} is not allowed'
             elif color_type == 3:
-                print(f'Not implemented {color_type}')
+                logger.error(f'Not implemented color type {color_type}')
+                sys.exit(1)
             elif color_type == 0 or color_type == 4:
-                print(f'{color_type} is not allowed for gamma correction')
+                logger.error(f'{color_type} is not allowed for gamma correction')
                 sys.exit(1)
             else:
                 assert False
@@ -119,10 +125,10 @@ class Decoder:
                     for j in range(width):
                         new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
             elif bit_depth == 1 or bit_depth == 2 or bit_depth == 4:
-                print(f'{bit_depth} bit for color type {color_type} is not implemented')
+                logger.error(f'{bit_depth} bit for color type {color_type} is not implemented')
                 sys.exit(1)
             else:
-                print(f'{bit_depth} bit for color type {color_type} is not allowed')
+                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                 sys.exit(1)
         elif color_type == 2:
             # RGB
@@ -136,11 +142,11 @@ class Decoder:
                         new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
                         new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
             else:
-                print(f'{bit_depth} bit for color type {color_type} is not allowed')
+                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                 sys.exit(1)
         elif color_type == 3:
             # palette index
-            print(f'Not implemented {color_type}')
+            logger.error(f'Not implemented {color_type}')
             sys.exit(1)
         elif color_type == 4:
             # grayscale + alpha
@@ -158,7 +164,7 @@ class Decoder:
                         new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
                         new_color_data[i][j][3] = alpha
             else:
-                print(f'{bit_depth} bit for color type {color_type} is not allowed')
+                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                 sys.exit(1)
         elif color_type == 6:
             # RGB + alpha
@@ -173,10 +179,10 @@ class Decoder:
                         new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
                         new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
             else:
-                print(f'{bit_depth} bit for color type {color_type} is not allowed')
+                logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                 sys.exit(1)
         else:
-            print(f'Color type {color_type} is not allowed')
+            logger.error(f'Color type {color_type} is not allowed')
             sys.exit(1)
 
         assert new_color_data is not None, 'new_color_data is None'
@@ -242,7 +248,7 @@ class Decoder:
 
                     color_data[i][j] = (decompressed_data[data_start_index + j] + pr) % 256
             else:
-                print(f'Unsupported filter type: {filter_type}')
+                logger.error(f'Unsupported filter type: {filter_type}')
                 sys.exit(1)
 
         return color_data
@@ -268,11 +274,10 @@ class Decoder:
 
     def _validate_header(self, f: io.BufferedReader) -> bool:
         if f.read(8) != b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A':
-            print('Invalid PNG image')
             return False
         return True
 
-    def _read_chunk(self, f: io.BufferedReader) -> Tuple[int, str, bytes, int]:
+    def _read_chunk(self, f: io.BufferedReader) -> tuple[int, str, bytes, int]:
         # Big endian
         chunk_length = int.from_bytes(f.read(4))
         chunk_type = f.read(4).decode('utf-8')
@@ -281,27 +286,27 @@ class Decoder:
 
         return chunk_length, chunk_type, chunk_data, chunk_crc
 
-    def _read_IHDR(self, f: io.BufferedReader) -> Tuple[int, int, int, int, int, int, int]:
+    def _read_IHDR(self, f: io.BufferedReader) -> tuple[int, int, int, int, int, int, int]:
         length, type, data, crc = self._read_chunk(f)
         if not crc32.check_crc32(type, data, crc):
             sys.exit(1)
 
         if type == 'IHDR':
             if length != 13:
-                print('Invalid IHDR chunk')
+                logger.error('Invalid IHDR chunk')
                 sys.exit(1)
             width, height = map(int.from_bytes, (data[0:4], data[4:8]))
-            bit_depth, color_type, compression_method, filter_method, interlace_method\
+            bit_depth, color_type, compression_method, filter_method, interlace_method \
                 = data[8], data[9], data[10], data[11], data[12]
 
-            self._log(f'Image size: {width}x{height}')
-            self._log(f'Bit depth: {bit_depth}')
-            self._log(f'Color type: {color_type}')
-            self._log(f'Compression method: {compression_method}')
-            self._log(f'Filter method: {filter_method}')
-            self._log(f'Interlace method: {interlace_method}')
+            logger.info(f'Image size: {width}x{height}')
+            logger.info(f'Bit depth: {bit_depth}')
+            logger.info(f'Color type: {color_type}')
+            logger.info(f'Compression method: {compression_method}')
+            logger.info(f'Filter method: {filter_method}')
+            logger.info(f'Interlace method: {interlace_method}')
         else:
-            print('Invalid IHDR chunk')
+            logger.error(f'Invalid IHDR chunk')
             sys.exit(1)
 
         return width, height, bit_depth, color_type, compression_method, filter_method, interlace_method
