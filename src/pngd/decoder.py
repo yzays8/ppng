@@ -145,6 +145,8 @@ class Decoder:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
             case 2:
+                if palette is not None:
+                    logger.warning('Palette is found but color type is 2')
                 # RGB
                 match bit_depth:
                     case 8:
@@ -194,6 +196,8 @@ class Decoder:
                         sys.exit(1)
             case 6:
                 # RGB + alpha
+                if palette is not None:
+                    logger.warning('Palette is found but color type is 6')
                 match bit_depth:
                     case 8:
                         new_color_data = color_data.reshape(height, width, 4)
