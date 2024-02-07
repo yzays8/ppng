@@ -29,6 +29,7 @@ class Decoder:
         IDAT_chunk_data = io.BytesIO()
 
         gamma: float = None
+        palette: np.ndarray = None
 
         while True:
             length, type, data, crc = self._read_chunk(f)
@@ -60,6 +61,16 @@ class Decoder:
                     # The data is a 4-byte unsigned integer, representing gamma times 100000 and rounded to the nearest integer.
                     gamma = int.from_bytes(data) / 100000
                     logger.info(f'gAMA: {gamma}')
+                case 'PLTE':
+                    # The data in PLTE chunk is a set of RGB values (entry), each 3 bytes long.
+                    # The number of palette entries is up to 256.
+                    if (length % 3 != 0) or (length > (1 << 8) * 3) or (length < 3):
+                        logger.error('Invalid PLTE chunk')
+                        sys.exit(1)
+                    entry_num = length // 3
+                    logger.info(f'PLTE: {entry_num} entries')
+                    # The order of data in each entry is R, G, B.
+                    palette = np.frombuffer(data, dtype=np.uint8).reshape(entry_num, 3)
                 case _:
                     logger.warning(f'Chunk "{type}" is not supported')
 
@@ -72,7 +83,7 @@ class Decoder:
             IDAT_chunk_data,
             decompressor.decompress,
             lambda x: self._restore_filtered_image(x, width, height, bytes_per_pixel),
-            lambda x: self._adjust_color_data(x, height, width, color_type, bit_depth),
+            lambda x: self._adjust_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
 
@@ -113,7 +124,7 @@ class Decoder:
 
         return color_data
 
-    def _adjust_color_data(self, color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int) -> np.ndarray:
+    def _adjust_color_data(self, color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
         new_color_data: np.ndarray = None
 
         match color_type:
@@ -150,8 +161,18 @@ class Decoder:
                         sys.exit(1)
             case 3:
                 # palette index
-                logger.error(f'Not implemented {color_type}')
-                sys.exit(1)
+                if palette is None:
+                    logger.error('Palette is not found')
+                    sys.exit(1)
+                match bit_depth:
+                    case 1 | 2 | 4 | 8:
+                        new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint8)
+                        for i in range(height):
+                            for j in range(width):
+                                new_color_data[i][j] = palette[color_data[i][j]]
+                    case _:
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
             case 4:
                 # grayscale + alpha
                 match bit_depth:

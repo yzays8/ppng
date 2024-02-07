@@ -56,6 +56,9 @@ class TestDecode:
     def test_type2_16bit(self):
         self._assert_equal_image('type2-16bit.png')
 
+    def test_type3_8bit(self):
+        self._assert_equal_image('type3-8bit.png')
+
     def test_type4_8bit(self):
         self._assert_equal_image('type4-8bit.png')
 

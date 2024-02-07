@@ -38,6 +38,9 @@ convert $ORIG_IMAGE_PATH -define png:color-type=2 -define png:bit-depth=8 $DEST_
 # Type 2, 16-bit
 convert $ORIG_IMAGE_PATH -define png:color-type=2 -define png:bit-depth=16 $DEST_DIR_PATH/type2-16bit.png
 
+# Type 3, 8-bit
+convert $ORIG_IMAGE_PATH -define png:color-type=3 -define png:bit-depth=8 png8:$DEST_DIR_PATH/type3-8bit.png
+
 # Type 4, 8-bit
 convert $ORIG_IMAGE_PATH -colorspace Gray -define png:color-type=4 -define png:bit-depth=8 $DEST_DIR_PATH/type4-8bit.png
 
