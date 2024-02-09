@@ -81,7 +81,7 @@ class Decoder:
 
         return pipe(
             IDAT_chunk_data,
-            decompressor.decompress,
+            decompressor.Decompressor(self._is_logging).decompress,
             lambda x: self._restore_filtered_image(x, width, height, bytes_per_pixel),
             lambda x: self._adjust_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
