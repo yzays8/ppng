@@ -67,6 +67,7 @@ class Decompressor():
                 assert False
 
     def _decompress_deflate(self, data: io.BytesIO) -> bytes:
+        output = io.BytesIO()
         while True:
             byte = int.from_bytes(data.read(1))
             bfinal = byte & 0b1
@@ -79,7 +80,7 @@ class Decompressor():
                     if len != (~nlen & 0xFFFF):
                         logger.error('NLEN is not the one\'s complement of LEN')
                         sys.exit(1)
-                    return data.read(len)
+                    output.write(data.read(len))
                 case 0b01:
                     # Compressed with fixed Huffman codes
                     pass
@@ -93,6 +94,7 @@ class Decompressor():
                     assert False
             if bfinal:
                 break
+        return output.getvalue()
 
     def decompress(self, data: io.BytesIO) -> bytes:
         decompressor = zlib.decompressobj()
