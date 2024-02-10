@@ -4,6 +4,8 @@ import zlib
 
 from loguru import logger
 
+from .adler32 import calculate_adler32
+
 class Decompressor():
     def __init__(self, is_logging: bool = False) -> None:
         logger.remove()
@@ -14,7 +16,13 @@ class Decompressor():
 
     def _decompress_zlib(self, data: io.BytesIO) -> bytes:
         self._interpret_zlib_header(*self._read_zlib_header(data))
-        return self._decompress_deflate(data)
+        decompressed_data = self._decompress_deflate(data)
+        adler32_checksum = int.from_bytes(data.read(4))
+        calculated_checksum = calculate_adler32(decompressed_data)
+        if adler32_checksum != calculated_checksum:
+            logger.error(f'Invalid Adler-32 checksum (expected: {hex(adler32_checksum)}, actual: {hex(calculated_checksum)})')
+            sys.exit(1)
+        return decompressed_data
 
     def _read_zlib_header(self, data: io.BytesIO) -> tuple[int, int]:
         # Big endian

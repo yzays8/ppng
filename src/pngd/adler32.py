@@ -1,10 +1,3 @@
-def check_adler32(data: bytes, adler32: int) -> bool:
-    calc_adler32 = calculate_adler32(data)
-    if calc_adler32 != adler32:
-        print(f'Invalid Adler-32 checksum (expected: {hex(adler32)}, actual: {hex(calc_adler32)})')
-        return False
-    return True
-
 def calculate_adler32(data: bytes) -> int:
     s1 = 1
     s2 = 0
