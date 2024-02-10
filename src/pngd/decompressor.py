@@ -67,29 +67,32 @@ class Decompressor():
                 assert False
 
     def _decompress_deflate(self, data: io.BytesIO) -> bytes:
-        byte = int.from_bytes(data.read(1))
-        bfinal = byte & 0b1
-        btype = (byte >> 1) & 0b11
-        match btype:
-            case 0b00:
-                # No compression
-                len = int.from_bytes(data.read(2), byteorder='little')
-                nlen = int.from_bytes(data.read(2), byteorder='little')
-                if len != (~nlen & 0xFFFF):
-                    logger.error('NLEN is not the one\'s complement of LEN')
+        while True:
+            byte = int.from_bytes(data.read(1))
+            bfinal = byte & 0b1
+            btype = (byte >> 1) & 0b11
+            match btype:
+                case 0b00:
+                    # No compression
+                    len = int.from_bytes(data.read(2), byteorder='little')
+                    nlen = int.from_bytes(data.read(2), byteorder='little')
+                    if len != (~nlen & 0xFFFF):
+                        logger.error('NLEN is not the one\'s complement of LEN')
+                        sys.exit(1)
+                    return data.read(len)
+                case 0b01:
+                    # Compressed with fixed Huffman codes
+                    pass
+                case 0b10:
+                    # Compressed with dynamic Huffman codes
+                    pass
+                case 0b11:
+                    logger.error('BTYPE 0b11 is reserved for future use')
                     sys.exit(1)
-                return data.read(len)
-            case 0b01:
-                # Compressed with fixed Huffman codes
-                pass
-            case 0b10:
-                # Compressed with dynamic Huffman codes
-                pass
-            case 0b11:
-                logger.error('BTYPE 0b11 is reserved for future use')
-                sys.exit(1)
-            case _:
-                assert False
+                case _:
+                    assert False
+            if bfinal:
+                break
 
     def decompress(self, data: io.BytesIO) -> bytes:
         decompressor = zlib.decompressobj()
