@@ -22,6 +22,12 @@ class TestDecompress:
         compressed = zlib.compress(data, level=0)
         assert decompressor._decompress_zlib(io.BytesIO(compressed)) == data
 
+    def test_no_compression_1MB(self):
+        decompressor = Decompressor()
+        data = b'a' * 10**6
+        compressed = zlib.compress(data, level=0)
+        assert decompressor._decompress_zlib(io.BytesIO(compressed)) == data
+
     def test_no_compression_random(self):
         decompressor = Decompressor()
         data = ''.join(random.choices(string.ascii_letters + string.digits, k=100)).encode('utf-8')
