@@ -6,6 +6,7 @@ from loguru import logger
 
 from .adler32 import calculate_adler32
 from .utils import BitStream
+from .tree import HuffmanTree
 
 class Decompressor():
     def __init__(self, is_logging: bool = False) -> None:
@@ -14,6 +15,8 @@ class Decompressor():
 
         # If a message higher than ERROR is logged while _is_logging is False, log it to stderr regardless of the logging flag
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not is_logging)
+
+        self.FIXED_HUFFMAN_TREE = self._make_fixed_huffman_tree()
 
     def _decompress_zlib(self, data: io.BytesIO) -> bytes:
         bit_stream = BitStream(data)
@@ -68,6 +71,18 @@ class Decompressor():
             case _:
                 assert False
 
+    def _make_fixed_huffman_tree(self) -> HuffmanTree:
+        huffman_tree = HuffmanTree()
+        for value in range(0, 143 + 1):
+            huffman_tree.insert(value, 0b00110000 + value, 8)
+        for value in range(144, 255 + 1):
+            huffman_tree.insert(value, 0b110010000 + value - 144, 9)
+        for value in range(256, 279 + 1):
+            huffman_tree.insert(value, 0b0000000 + value - 256, 7)
+        for value in range(280, 287 + 1):
+            huffman_tree.insert(value, 0b11000000 + value - 280, 8)
+        return huffman_tree
+
     def _decompress_deflate(self, data_stream: BitStream) -> bytes:
         output = io.BytesIO()
 
@@ -97,47 +112,23 @@ class Decompressor():
                         huffman_code = (huffman_code << 1) | data_stream.read_bit()
                         huffman_code_length += 1
 
-                        if huffman_code_length == 7:
-                            if huffman_code in range(0b0000000, 0b0010111 + 1):
-                                # Decoded value is between 256 - 279
-                                decoded_value = huffman_code - 0b0000000 + 256
-                                # End of block
-                                if decoded_value == 256:
-                                    break
-                                self._decode_LZ77(data_stream, decoded_value, output)
-                                huffman_code_length = 0
-                                huffman_code = 0
-                            else:
-                                pass
-                        elif huffman_code_length == 8:
-                            if huffman_code in range(0b00110000, 0b10111111 + 1):
-                                # Decoded value is between 0 - 143
-                                decoded_value = huffman_code - 0b00110000 + 0
-                                output.write(decoded_value.to_bytes(1))
-                                huffman_code_length = 0
-                                huffman_code = 0
-                            elif huffman_code in range(0b11000000, 0b11000111 + 1):
-                                # Decoded value is between 280 - 287
-                                decoded_value = huffman_code - 0b11000000 + 280
-                                self._decode_LZ77(data_stream, decoded_value, output)
-                                huffman_code_length = 0
-                                huffman_code = 0
-                            else:
-                                pass
-                        elif huffman_code_length == 9:
-                            if huffman_code in range(0b110010000, 0b111111111 + 1):
-                                # Decoded value is between 144 - 255
-                                decoded_value = huffman_code - 0b110010000 + 144
-                                output.write(decoded_value.to_bytes(1))
-                                huffman_code_length = 0
-                                huffman_code = 0
-                            else:
-                                logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
-                                sys.exit(1)
-                        elif huffman_code_length > 9:
-                            assert False
+                        decoded_value = self._decode_fixed_huffman_code(huffman_code, huffman_code_length)
+                        if decoded_value is None:
+                            continue
+                        elif decoded_value in range(0, 255 + 1):
+                            output.write(decoded_value.to_bytes(1))
+                            huffman_code_length = 0
+                            huffman_code = 0
+                        elif decoded_value in range(257, 285 + 1):
+                            self._decode_LZ77(data_stream, decoded_value, output)
+                            huffman_code_length = 0
+                            huffman_code = 0
+                        elif decoded_value == 256:
+                            break
                         else:
-                            pass
+                            # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
+                            logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
+                            sys.exit(1)
                 case 0b10:
                     # Compressed with dynamic Huffman codes
                     logger.error('Dynamic Huffman codes are not implemented')
@@ -152,6 +143,9 @@ class Decompressor():
                 break
 
         return output.getvalue()
+
+    def _decode_fixed_huffman_code(self, huffman_code: int, huffman_code_length: int) -> int | None:
+        return self.FIXED_HUFFMAN_TREE.search(huffman_code, huffman_code_length)
 
     def _decode_LZ77(self, input_stream: BitStream, value: int, output_stream: io.BytesIO) -> None:
         # Get the length of the match
