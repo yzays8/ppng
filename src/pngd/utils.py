@@ -2,8 +2,8 @@ import io
 import sys
 
 class BitStream:
-    def __init__(self, byte_stream: io.BytesIO) -> None:
-        self.stream = byte_stream
+    def __init__(self, byte_stream: bytes) -> None:
+        self.stream = io.BytesIO(byte_stream)
         self.byte = 0
         self.bit_offset = 0
 

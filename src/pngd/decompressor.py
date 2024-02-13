@@ -17,7 +17,7 @@ class Decompressor():
 
         self.FIXED_HUFFMAN_TREE = self._make_fixed_huffman_tree()
 
-    def _decompress_zlib(self, data: io.BytesIO) -> bytes:
+    def _decompress_zlib(self, data: bytes) -> bytes:
         bit_stream = BitStream(data)
         self._interpret_zlib_header(*self._read_zlib_header(bit_stream))
         decompressed_data = self._decompress_deflate(bit_stream)
@@ -82,13 +82,16 @@ class Decompressor():
             huffman_tree.insert(value, 0b11000000 + value - 280, 8)
         return huffman_tree
 
+    def _read_deflate_header(self, data: BitStream) -> tuple[bool, int]:
+        bfinal = data.read_bit()
+        btype = data.read_bits(2, reverse=False)
+        return bfinal, btype
+
     def _decompress_deflate(self, data_stream: BitStream) -> bytes:
         output = io.BytesIO()
 
         while True:
-            # Read the header of the deflate block
-            bfinal = data_stream.read_bit()
-            btype = data_stream.read_bits(2, reverse=False)
+            bfinal, btype = self._read_deflate_header(data_stream)
 
             match btype:
                 case 0b00:
@@ -354,4 +357,4 @@ class Decompressor():
             output_stream.write(output_stream.getvalue()[-distance].to_bytes(1))
 
     def decompress(self, data: io.BytesIO) -> bytes:
-        return self._decompress_zlib(io.BytesIO(data.getbuffer().tobytes()))
+        return self._decompress_zlib(data.getbuffer().tobytes())
