@@ -4,7 +4,7 @@ import sys
 from loguru import logger
 
 from .tree import HuffmanTree
-from ..utils.utils import BitStream
+from ..utils.bitstream import BitStream
 
 class Deflate:
     def __init__(self, is_logging: bool = False) -> None:

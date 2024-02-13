@@ -4,7 +4,7 @@ from loguru import logger
 
 from .adler32 import calculate_adler32
 from .deflate import Deflate
-from ..utils.utils import BitStream
+from ..utils.bitstream import BitStream
 
 class Zlib:
     def __init__(self, is_logging: bool = False) -> None:
