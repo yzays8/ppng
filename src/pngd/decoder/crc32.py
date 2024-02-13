@@ -1,14 +1,3 @@
-def check_crc32(type: str, data: bytes, crc: int) -> bool:
-    # CRC32 checksum for PNG chunks is calculated from the chunk type and chunk data.
-    orig_data = type.encode('utf-8') + data
-
-    calc_crc = calculate_crc32(orig_data)
-
-    if calc_crc != crc:
-        print(f'Invalid CRC for chunk "{type}" (expected: {hex(crc)}, actual: {hex(calc_crc)})')
-        return False
-    return True
-
 def calculate_crc32(data: bytes) -> int:
     # 4 bytes 0x00 is appended to the end of the data to ensure that the data is longer than the polynomial.
     data += b'\x00' * 4

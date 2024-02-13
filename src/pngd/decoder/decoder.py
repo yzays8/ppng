@@ -33,7 +33,11 @@ class Decoder:
 
         while True:
             length, type, data, crc = self._read_chunk(f)
-            if not crc32.check_crc32(type, data, crc):
+
+            # CRC32 checksum for PNG chunks is calculated from the chunk type and chunk data.
+            calculated_crc32_checksum = crc32.calculate_crc32(type.encode('utf-8') + data)
+            if calculated_crc32_checksum != crc:
+                logger.error(f'Invalid CRC for chunk "{type}" (expected: {hex(crc)}, actual: {hex(calculated_crc32_checksum)})')
                 sys.exit(1)
 
             match type:
@@ -321,7 +325,9 @@ class Decoder:
 
     def _read_IHDR(self, f: io.BufferedReader) -> tuple[int, int, int, int, int, int, int]:
         length, type, data, crc = self._read_chunk(f)
-        if not crc32.check_crc32(type, data, crc):
+        calculated_crc32_checksum = crc32.calculate_crc32(type.encode('utf-8') + data)
+        if calculated_crc32_checksum != crc:
+            logger.error(f'Invalid CRC for chunk "{type}" (expected: {hex(crc)}, actual: {hex(calculated_crc32_checksum)})')
             sys.exit(1)
 
         if type == 'IHDR':
