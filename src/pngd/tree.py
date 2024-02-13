@@ -1,5 +1,3 @@
-import pprint
-
 from typing import Self
 from toolz import pipe
 
@@ -68,26 +66,26 @@ class HuffmanTree:
         get_symbol_code(self.root, '')
         return symbol_code_table
 
-# Make huffman tree from decoded values and lengths of their codes
-def make_canonical_huffman_tree(symbol_length_table: dict[int, int]) -> HuffmanTree:
-    # Sort by the length of the code and then by the value
-    table = pipe(
-        symbol_length_table.items(),
-        lambda arg: sorted(arg, key=lambda x: (x[1], x[0])),
-        lambda arg: filter(lambda x: x[1] != 0, arg),
-        list,
-    )
-    # pprint.pprint(table)
+    # Make huffman tree from decoded values and lengths of their codes
+    @staticmethod
+    def create_canonical_huffman_tree(code_length_code_table: dict[int, int]) -> Self:
+        # Sort by the length of the code and then by the value
+        table: list[tuple[int, int]] = pipe(
+            code_length_code_table.items(),
+            lambda arg: sorted(arg, key=lambda x: (x[1], x[0])),
+            lambda arg: filter(lambda x: x[1] != 0, arg),
+            list,
+        )
 
-    huffman_tree = HuffmanTree()
-    current_code = 0
-    current_code_length = 0
-    for symbol, length in table:
-        if length > current_code_length:
-            # Each time the code length increases, a zero is appended to the end of the code.
-            current_code <<= length - current_code_length
-            current_code_length = length
-        huffman_tree.insert(symbol, current_code, current_code_length)
-        # Each time a new code is inserted, current code is incremented.
-        current_code += 1
-    return huffman_tree
+        huffman_tree = HuffmanTree()
+        current_code = 0
+        current_code_length = 0
+        for symbol, length in table:
+            if length > current_code_length:
+                # Each time the code length increases, a zero is appended to the end of the code.
+                current_code <<= length - current_code_length
+                current_code_length = length
+            huffman_tree.insert(symbol, current_code, current_code_length)
+            # Each time a new code is inserted, current code is incremented.
+            current_code += 1
+        return huffman_tree

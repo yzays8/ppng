@@ -3,7 +3,7 @@ import sys
 
 from loguru import logger
 
-from . import tree
+from .tree import HuffmanTree
 from .utils import BitStream
 
 class Deflate:
@@ -61,8 +61,8 @@ class Deflate:
         return output.getvalue()
 
     @staticmethod
-    def create_fixed_huffman_tree() -> tree.HuffmanTree:
-        huffman_tree = tree.HuffmanTree()
+    def create_fixed_huffman_tree() -> HuffmanTree:
+        huffman_tree = HuffmanTree()
         for value in range(0, 143 + 1):
             huffman_tree.insert(value, 0b00110000 + value, 8)
         for value in range(144, 255 + 1):
@@ -78,16 +78,16 @@ class Deflate:
         btype = data.read_bits(2, reverse=False)
         return bfinal, btype
 
-    def _create_code_length_code_tree(self, input_stream: BitStream, hclen: int) -> tree.HuffmanTree:
+    def _create_code_length_code_tree(self, input_stream: BitStream, hclen: int) -> HuffmanTree:
         code_length_code_table = {}
         for i in range(hclen + 4):
             code_length_code_table[self.CODE_LENGTH_CODE_TABLE_INDEXES[i]] = input_stream.read_bits(3, reverse=False)
         for i in range(19):
             if i not in code_length_code_table:
                 code_length_code_table[i] = 0
-        return tree.make_canonical_huffman_tree(code_length_code_table)
+        return HuffmanTree.create_canonical_huffman_tree(code_length_code_table)
 
-    def _create_tree_from_code_length_code_tree(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, table_num: int) -> tree.HuffmanTree:
+    def _create_tree_from_code_length_code_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, table_num: int) -> HuffmanTree:
         table = {}
         i = 0
         while i < table_num:
@@ -121,16 +121,16 @@ class Deflate:
                     i += 1
                 break
 
-        return tree.make_canonical_huffman_tree(table)
+        return HuffmanTree.create_canonical_huffman_tree(table)
 
-    def _create_literal_length_tree(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, hlit: int) -> tree.HuffmanTree:
+    def _create_literal_length_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, hlit: int) -> HuffmanTree:
         return self._create_tree_from_code_length_code_tree(input_stream, code_length_code_tree, hlit + 257)
 
-    def _create_distance_tree(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, hdist: int) -> tree.HuffmanTree:
+    def _create_distance_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, hdist: int) -> HuffmanTree:
         return self._create_tree_from_code_length_code_tree(input_stream, code_length_code_tree, hdist + 1)
 
     def _decompress_compressed_data(
-            self, input_stream: BitStream, output_stream: io.BytesIO, literal_length_tree: tree.HuffmanTree, dist_tree: tree.HuffmanTree | None = None
+            self, input_stream: BitStream, output_stream: io.BytesIO, literal_length_tree: HuffmanTree, dist_tree: HuffmanTree | None = None
         ) -> None:
         huffman_code, huffman_code_length = 0, 0
         while True:
@@ -158,7 +158,7 @@ class Deflate:
     def _decode_fixed_huffman_code(self, huffman_code: int, huffman_code_length: int) -> int | None:
         return self.FIXED_HUFFMAN_TREE.search(huffman_code, huffman_code_length)
 
-    def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: tree.HuffmanTree | None = None) -> None:
+    def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: HuffmanTree | None = None) -> None:
         # Get the length of the match
         if length_value in range(257, 264 + 1):
             base_match_length = 3 + length_value - 257
