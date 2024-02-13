@@ -63,3 +63,15 @@ class TestDecompress:
         data = b'a' * 10**3
         compressed = zlib.compress(data, level=1)
         assert decompressor._decompress_zlib(io.BytesIO(compressed)) == data
+
+    def test_dynamic_huffman_1MB(self):
+        decompressor = Decompressor()
+        data = b'a' * 10**6
+        compressed = zlib.compress(data, level=9)
+        assert decompressor._decompress_zlib(io.BytesIO(compressed)) == data
+
+    def test_dynamic_huffman_random(self):
+        decompressor = Decompressor()
+        data = ''.join(random.choices(string.ascii_letters + string.digits, k=10000)).encode('utf-8')
+        compressed = zlib.compress(data, level=9)
+        assert decompressor._decompress_zlib(io.BytesIO(compressed)) == data
