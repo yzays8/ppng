@@ -15,7 +15,8 @@ class Decompressor():
         # If a message higher than ERROR is logged while _is_logging is False, log it to stderr regardless of the logging flag
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not is_logging)
 
-        self.FIXED_HUFFMAN_TREE = self._make_fixed_huffman_tree()
+        self.FIXED_HUFFMAN_TREE = self._create_fixed_huffman_tree()
+        self.CODE_LENGTH_CODE_TABLE_INDEXES = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
 
     def _decompress_zlib(self, data: bytes) -> bytes:
         bit_stream = BitStream(data)
@@ -70,7 +71,7 @@ class Decompressor():
             case _:
                 assert False
 
-    def _make_fixed_huffman_tree(self) -> tree.HuffmanTree:
+    def _create_fixed_huffman_tree(self) -> tree.HuffmanTree:
         huffman_tree = tree.HuffmanTree()
         for value in range(0, 143 + 1):
             huffman_tree.insert(value, 0b00110000 + value, 8)
@@ -82,20 +83,73 @@ class Decompressor():
             huffman_tree.insert(value, 0b11000000 + value - 280, 8)
         return huffman_tree
 
-    def _read_deflate_header(self, data: BitStream) -> tuple[bool, int]:
+    def _read_deflate_block_header(self, data: BitStream) -> tuple[bool, int]:
         bfinal = data.read_bit()
         btype = data.read_bits(2, reverse=False)
         return bfinal, btype
 
+    def _create_code_length_code_tree(self, input_stream: BitStream, hclen: int) -> tree.HuffmanTree:
+        code_length_code_table = {}
+        for i in range(hclen + 4):
+            code_length_code_table[self.CODE_LENGTH_CODE_TABLE_INDEXES[i]] = input_stream.read_bits(3, reverse=False)
+        for i in range(19):
+            if i not in code_length_code_table:
+                code_length_code_table[i] = 0
+        return tree.make_canonical_huffman_tree(code_length_code_table)
+
+    def _create_tree_from_code_length_code(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, table_num: int) -> tree.HuffmanTree:
+        table = {}
+        i = 0
+        while i < table_num:
+            huffman_code, huffman_code_length = 0, 0
+            while True:
+                huffman_code = (huffman_code << 1) | input_stream.read_bit()
+                huffman_code_length += 1
+                decoded_value = code_length_code_tree.search(huffman_code, huffman_code_length)
+                if decoded_value is None:
+                    continue
+                elif decoded_value == 16:
+                    # Repeat previous value 3-6 times
+                    extra_bits = input_stream.read_bits(2, reverse=False)
+                    for _ in range(3 + extra_bits):
+                        table[i] = table[i - 1]
+                        i += 1
+                elif decoded_value == 17:
+                    # Repeat 0 for 3-10 times
+                    extra_bits = input_stream.read_bits(3, reverse=False)
+                    for _ in range(3 + extra_bits):
+                        table[i] = 0
+                        i += 1
+                elif decoded_value == 18:
+                    # Repeat 0 for 11-138 times
+                    extra_bits = input_stream.read_bits(7, reverse=False)
+                    for _ in range(11 + extra_bits):
+                        table[i] = 0
+                        i += 1
+                else:
+                    table[i] = decoded_value
+                    i += 1
+                break
+
+        return tree.make_canonical_huffman_tree(table)
+
+    def _create_literal_length_tree(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, hlit: int) -> tree.HuffmanTree:
+        return self._create_tree_from_code_length_code(input_stream, code_length_code_tree, hlit + 257)
+
+    def _create_distance_tree(self, input_stream: BitStream, code_length_code_tree: tree.HuffmanTree, hdist: int) -> tree.HuffmanTree:
+        return self._create_tree_from_code_length_code(input_stream, code_length_code_tree, hdist + 1)
+
     def _decompress_deflate(self, data_stream: BitStream) -> bytes:
         output = io.BytesIO()
 
+        # Read deflate blocks
         while True:
-            bfinal, btype = self._read_deflate_header(data_stream)
+            bfinal, btype = self._read_deflate_block_header(data_stream)
 
             match btype:
                 case 0b00:
                     # No compression
+
                     len = data_stream.read_bytes(2, reverse=False, endian='little')
                     nlen = data_stream.read_bytes(2, reverse=False, endian='little')
                     if len != (~nlen & 0xFFFF):
@@ -105,148 +159,20 @@ class Decompressor():
                 case 0b01:
                     # Compressed with fixed Huffman codes
 
-                    # Read remaining bits in the deflate block header and make a Huffman code up to 5 bits
-                    huffman_code = data_stream.read_bits(5)
-                    huffman_code_length = 5
-
-                    # Read the compressed data
-                    while True:
-                        huffman_code = (huffman_code << 1) | data_stream.read_bit()
-                        huffman_code_length += 1
-
-                        decoded_value = self._decode_fixed_huffman_code(huffman_code, huffman_code_length)
-                        if decoded_value is None:
-                            continue
-                        elif decoded_value in range(0, 255 + 1):
-                            output.write(decoded_value.to_bytes(1))
-                            huffman_code_length = 0
-                            huffman_code = 0
-                        elif decoded_value in range(257, 285 + 1):
-                            self._decode_LZ77(data_stream, decoded_value, output)
-                            huffman_code_length = 0
-                            huffman_code = 0
-                        elif decoded_value == 256:
-                            break
-                        else:
-                            # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
-                            logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
-                            sys.exit(1)
+                    self._read_compressed_data(data_stream, output, self.FIXED_HUFFMAN_TREE, dist_tree=None)
                 case 0b10:
                     # Compressed with dynamic Huffman codes
 
                     hlit = data_stream.read_bits(5, reverse=False)  # Number of literal/length codes - 257
                     hdist = data_stream.read_bits(5, reverse=False) # Number of distance codes - 1
                     hclen = data_stream.read_bits(4, reverse=False) # Number of code length codes - 4
-                    # assert False, (hlit, hdist, hclen)
 
-                    # Create the code length table for the code length table
-                    code_length_table = {}
-                    CODE_LENGTH_TABLE_INDEXES = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
-                    for i in range(hclen + 4):
-                        code_length_table[CODE_LENGTH_TABLE_INDEXES[i]] = data_stream.read_bits(3, reverse=False)
-                    for i in range(19):
-                        if i not in code_length_table:
-                            code_length_table[i] = 0
-                    # assert False, code_length_table
-                    code_length_huffman_tree = tree.make_canonical_huffman_tree(code_length_table)
+                    code_length_code_tree = self._create_code_length_code_tree(data_stream, hclen)
 
-                    # Create the literal/length table and huffman tree
-                    literal_length_table = {}
-                    i = 0
-                    while i < hlit + 257:
-                        huffman_code, huffman_code_length = 0, 0
-                        while True:
-                            huffman_code = (huffman_code << 1) | data_stream.read_bit()
-                            huffman_code_length += 1
-                            decoded_value = code_length_huffman_tree.search(huffman_code, huffman_code_length)
-                            if decoded_value is None:
-                                continue
-                            elif decoded_value == 16:
-                                # Repeat previous value 3-6 times
-                                extra_bits = data_stream.read_bits(2, reverse=False)
-                                for _ in range(3 + extra_bits):
-                                    literal_length_table[i] = literal_length_table[i - 1]
-                                    i += 1
-                            elif decoded_value == 17:
-                                # Repeat 0 for 3-10 times
-                                extra_bits = data_stream.read_bits(3, reverse=False)
-                                for _ in range(3 + extra_bits):
-                                    literal_length_table[i] = 0
-                                    i += 1
-                            elif decoded_value == 18:
-                                # Repeat 0 for 11-138 times
-                                extra_bits = data_stream.read_bits(7, reverse=False)
-                                for _ in range(11 + extra_bits):
-                                    literal_length_table[i] = 0
-                                    i += 1
-                            else:
-                                literal_length_table[i] = decoded_value
-                                i += 1
-                            break
+                    literal_length_tree = self._create_literal_length_tree(data_stream, code_length_code_tree, hlit)
+                    distance_tree = self._create_distance_tree(data_stream, code_length_code_tree, hdist)
 
-                    literal_length_huffman_tree = tree.make_canonical_huffman_tree(literal_length_table)
-
-                    # Create the distance table and huffman tree
-                    distance_table = {}
-                    i = 0
-                    while i < hdist + 1:
-                        huffman_code, huffman_code_length = 0, 0
-                        while True:
-                            huffman_code = (huffman_code << 1) | data_stream.read_bit()
-                            huffman_code_length += 1
-                            decoded_value = code_length_huffman_tree.search(huffman_code, huffman_code_length)
-                            if decoded_value is None:
-                                continue
-                            elif decoded_value == 16:
-                                # Repeat previous value 3-6 times
-                                extra_bits = data_stream.read_bits(2, reverse=False)
-                                for _ in range(3 + extra_bits):
-                                    distance_table[i] = distance_table[i - 1]
-                                    i += 1
-                            elif decoded_value == 17:
-                                # Repeat 0 for 3-10 times
-                                extra_bits = data_stream.read_bits(3, reverse=False)
-                                for _ in range(3 + extra_bits):
-                                    distance_table[i] = 0
-                                    i += 1
-                            elif decoded_value == 18:
-                                # Repeat 0 for 11-138 times
-                                extra_bits = data_stream.read_bits(7, reverse=False)
-                                for _ in range(11 + extra_bits):
-                                    distance_table[i] = 0
-                                    i += 1
-                            else:
-                                distance_table[i] = decoded_value
-                                i += 1
-                            break
-
-                    distance_huffman_tree = tree.make_canonical_huffman_tree(distance_table)
-                    # assert False, (literal_length_huffman_tree.get_symbol_code_table(), distance_huffman_tree.get_symbol_code_table())
-
-                    # Read the compressed data
-                    huffman_code, huffman_code_length = 0, 0
-                    while True:
-                        huffman_code = (huffman_code << 1) | data_stream.read_bit()
-                        huffman_code_length += 1
-
-                        decoded_value = literal_length_huffman_tree.search(huffman_code, huffman_code_length)
-                        if decoded_value is None:
-                            continue
-                        elif decoded_value in range(0, 255 + 1):
-                            output.write(decoded_value.to_bytes(1))
-                            huffman_code_length = 0
-                            huffman_code = 0
-                        elif decoded_value in range(257, 285 + 1):
-                            self._decode_LZ77(data_stream, decoded_value, output, dist_tree=distance_huffman_tree)
-                            huffman_code_length = 0
-                            huffman_code = 0
-                        elif decoded_value == 256:
-                            break
-                        else:
-                            # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
-                            logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
-                            sys.exit(1)
-
+                    self._read_compressed_data(data_stream, output, literal_length_tree, distance_tree)
                 case 0b11:
                     logger.error('BTYPE 0b11 is reserved for future use')
                     sys.exit(1)
@@ -258,103 +184,131 @@ class Decompressor():
 
         return output.getvalue()
 
+    def _read_compressed_data(
+            self, input_stream: BitStream, output_stream: io.BytesIO, literal_length_tree: tree.HuffmanTree, dist_tree: tree.HuffmanTree | None = None
+        ) -> None:
+        huffman_code, huffman_code_length = 0, 0
+        while True:
+            huffman_code = (huffman_code << 1) | input_stream.read_bit()
+            huffman_code_length += 1
+
+            decoded_value = literal_length_tree.search(huffman_code, huffman_code_length)
+            if decoded_value is None:
+                continue
+            elif decoded_value in range(0, 255 + 1):
+                output_stream.write(decoded_value.to_bytes(1))
+                huffman_code_length = 0
+                huffman_code = 0
+            elif decoded_value in range(257, 285 + 1):
+                self._decode_LZ77(input_stream, decoded_value, output_stream, dist_tree=dist_tree)
+                huffman_code_length = 0
+                huffman_code = 0
+            elif decoded_value == 256:
+                break
+            else:
+                # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
+                logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
+                sys.exit(1)
+
     def _decode_fixed_huffman_code(self, huffman_code: int, huffman_code_length: int) -> int | None:
         return self.FIXED_HUFFMAN_TREE.search(huffman_code, huffman_code_length)
 
-    def _decode_LZ77(self, input_stream: BitStream, value: int, output_stream: io.BytesIO, dist_tree: tree.HuffmanTree | None = None) -> None:
+    def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: tree.HuffmanTree | None = None) -> None:
         # Get the length of the match
-        if value in range(257, 264 + 1):
-            relative_length = 3 + value - 257
+        if length_value in range(257, 264 + 1):
+            base_match_length = 3 + length_value - 257
             extra_bits_length = 0
-        elif value in range(265, 268 + 1):
-            relative_length = 11 + 2 * (value - 265)
+        elif length_value in range(265, 268 + 1):
+            base_match_length = 11 + 2 * (length_value - 265)
             extra_bits_length = 1
-        elif value in range(269, 272 + 1):
-            relative_length = 19 + 4 * (value - 269)
+        elif length_value in range(269, 272 + 1):
+            base_match_length = 19 + 4 * (length_value - 269)
             extra_bits_length = 2
-        elif value in range(273, 276 + 1):
-            relative_length = 35 + 8 * (value - 273)
+        elif length_value in range(273, 276 + 1):
+            base_match_length = 35 + 8 * (length_value - 273)
             extra_bits_length = 3
-        elif value in range(277, 280 + 1):
-            relative_length = 67 + 16 * (value - 277)
+        elif length_value in range(277, 280 + 1):
+            base_match_length = 67 + 16 * (length_value - 277)
             extra_bits_length = 4
-        elif value in range(281, 284 + 1):
-            relative_length = 131 + 32 * (value - 281)
+        elif length_value in range(281, 284 + 1):
+            base_match_length = 131 + 32 * (length_value - 281)
             extra_bits_length = 5
-        elif value == 285:
-            relative_length = 258
+        elif length_value == 285:
+            base_match_length = 258
             extra_bits_length = 0
         else:
-            logger.error(f'Invalid decoded value: {value}')
+            logger.error(f'Invalid decoded value: {length_value}')
             sys.exit(1)
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)
-        length = relative_length + extra_bits
+        match_length = base_match_length + extra_bits
 
         # Get the distance of the match
-        # dist_code is 5 bits long and should be read in reverse order same as the Huffman code
         if dist_tree is None:
-            dist_code = input_stream.read_bits(5)
+            # Compressed with fixed Huffman codes
+            dist_value = input_stream.read_bits(5)
         else:
-            code = 0
-            code_length = 0
+            # Compressed with dynamic Huffman codes
+            huffman_code = 0
+            huffman_code_length = 0
             while True:
-                code = (code << 1) | input_stream.read_bit()
-                code_length += 1
-                dist_code = dist_tree.search(code, code_length)
-                if dist_code is not None:
+                huffman_code = (huffman_code << 1) | input_stream.read_bit()
+                huffman_code_length += 1
+                dist_value = dist_tree.search(huffman_code, huffman_code_length)
+                if dist_value is not None:
                     break
 
-        if dist_code in range(0, 3 + 1):
-            relative_distance = dist_code + 1
+        # Get the distance of the match
+        if dist_value in range(0, 3 + 1):
+            base_match_distance = dist_value + 1
             extra_bits_length = 0
-        elif dist_code in range(4, 5 + 1):
-            relative_distance = 5 + 2 * (dist_code - 4)
+        elif dist_value in range(4, 5 + 1):
+            base_match_distance = 5 + 2 * (dist_value - 4)
             extra_bits_length = 1
-        elif dist_code in range(6, 7 + 1):
-            relative_distance = 9 + 4 * (dist_code - 6)
+        elif dist_value in range(6, 7 + 1):
+            base_match_distance = 9 + 4 * (dist_value - 6)
             extra_bits_length = 2
-        elif dist_code in range(8, 9 + 1):
-            relative_distance = 17 + 8 * (dist_code - 8)
+        elif dist_value in range(8, 9 + 1):
+            base_match_distance = 17 + 8 * (dist_value - 8)
             extra_bits_length = 3
-        elif dist_code in range(10, 11 + 1):
-            relative_distance = 33 + 16 * (dist_code - 10)
+        elif dist_value in range(10, 11 + 1):
+            base_match_distance = 33 + 16 * (dist_value - 10)
             extra_bits_length = 4
-        elif dist_code in range(12, 13 + 1):
-            relative_distance = 65 + 32 * (dist_code - 12)
+        elif dist_value in range(12, 13 + 1):
+            base_match_distance = 65 + 32 * (dist_value - 12)
             extra_bits_length = 5
-        elif dist_code in range(14, 15 + 1):
-            relative_distance = 129 + 64 * (dist_code - 14)
+        elif dist_value in range(14, 15 + 1):
+            base_match_distance = 129 + 64 * (dist_value - 14)
             extra_bits_length = 6
-        elif dist_code in range(16, 17 + 1):
-            relative_distance = 257 + 128 * (dist_code - 16)
+        elif dist_value in range(16, 17 + 1):
+            base_match_distance = 257 + 128 * (dist_value - 16)
             extra_bits_length = 7
-        elif dist_code in range(18, 19 + 1):
-            relative_distance = 513 + 256 * (dist_code - 18)
+        elif dist_value in range(18, 19 + 1):
+            base_match_distance = 513 + 256 * (dist_value - 18)
             extra_bits_length = 8
-        elif dist_code in range(20, 21 + 1):
-            relative_distance = 1025 + 512 * (dist_code - 20)
+        elif dist_value in range(20, 21 + 1):
+            base_match_distance = 1025 + 512 * (dist_value - 20)
             extra_bits_length = 9
-        elif dist_code in range(22, 23 + 1):
-            relative_distance = 2049 + 1024 * (dist_code - 22)
+        elif dist_value in range(22, 23 + 1):
+            base_match_distance = 2049 + 1024 * (dist_value - 22)
             extra_bits_length = 10
-        elif dist_code in range(24, 25 + 1):
-            relative_distance = 4097 + 2048 * (dist_code - 24)
+        elif dist_value in range(24, 25 + 1):
+            base_match_distance = 4097 + 2048 * (dist_value - 24)
             extra_bits_length = 11
-        elif dist_code in range(26, 27 + 1):
-            relative_distance = 8193 + 4096 * (dist_code - 26)
+        elif dist_value in range(26, 27 + 1):
+            base_match_distance = 8193 + 4096 * (dist_value - 26)
             extra_bits_length = 12
-        elif dist_code in range(28, 29 + 1):
-            relative_distance = 16385 + 8192 * (dist_code - 28)
+        elif dist_value in range(28, 29 + 1):
+            base_match_distance = 16385 + 8192 * (dist_value - 28)
             extra_bits_length = 13
         else:
-            logger.error(f'Invalid distance code: {dist_code}')
+            logger.error(f'Invalid distance code: {dist_value}')
             sys.exit(1)
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)
-        distance = relative_distance + extra_bits
+        match_distance = base_match_distance + extra_bits
 
         # Copy the match to the output
-        for _ in range(length):
-            output_stream.write(output_stream.getvalue()[-distance].to_bytes(1))
+        for _ in range(match_length):
+            output_stream.write(output_stream.getvalue()[-match_distance].to_bytes(1))
 
     def decompress(self, data: io.BytesIO) -> bytes:
         return self._decompress_zlib(data.getbuffer().tobytes())
