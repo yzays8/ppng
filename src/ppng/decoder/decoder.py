@@ -33,6 +33,13 @@ class Decoder:
             case _:
                 pass
 
+        match interlace_method:
+            case 0:
+                pass
+            case _:
+                logger.error(f'Interlace method {interlace_method} is not implemented')
+                sys.exit(1)
+
         IDAT_chunk_data = io.BytesIO()
 
         gamma: float = None
