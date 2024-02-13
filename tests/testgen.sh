@@ -3,8 +3,8 @@
 set -eu
 cd $(dirname $0)
 
-readonly ORIG_IMAGE_PATH='tests/image/mandrill.tiff'
-readonly DEST_DIR_PATH='tests/image/mandrill'
+readonly ORIG_IMAGE_PATH='image/mandrill.tiff'
+readonly DEST_DIR_PATH='image/mandrill'
 
 if [ ! -d $DEST_DIR_PATH ]; then
     mkdir $DEST_DIR_PATH
