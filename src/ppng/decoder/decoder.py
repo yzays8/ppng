@@ -26,6 +26,13 @@ class Decoder:
         width, height, bit_depth, color_type, compression_method, filter_method, interlace_method \
             = self._read_IHDR(f)
 
+        match bit_depth:
+            case 1 | 2 | 4:
+                logger.error(f'Bit depth {bit_depth} is not implemented')
+                sys.exit(1)
+            case _:
+                pass
+
         IDAT_chunk_data = io.BytesIO()
 
         gamma: float = None
