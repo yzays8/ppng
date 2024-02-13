@@ -66,7 +66,7 @@ class HuffmanTree:
         get_symbol_code(self.root, '')
         return symbol_code_table
 
-    # Make huffman tree from decoded values and lengths of their codes
+    # Make canonical huffman tree from decoded values and lengths of their codes
     @staticmethod
     def create_canonical_huffman_tree(code_length_code_table: dict[int, int]) -> Self:
         # Sort by the length of the code and then by the value

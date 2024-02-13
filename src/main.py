@@ -4,9 +4,8 @@ import os
 import ppng
 
 def main(argv: list[str]) -> int | None:
-    def usage():
+    def usage() -> None:
         print(f'usage: python3 {argv[0]} <file>')
-        return
 
     if len(argv) != 2:
         return usage()
