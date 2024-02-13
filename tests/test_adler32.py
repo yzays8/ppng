@@ -6,7 +6,7 @@ import zlib
 
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
-from src.pngd.decompressor.adler32 import calculate_adler32
+from src.ppng.decompressor.adler32 import calculate_adler32
 
 class TestAdler32:
     def _assert_equal_adler32(self, data: bytes) -> None:

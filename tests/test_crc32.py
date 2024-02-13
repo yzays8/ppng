@@ -6,7 +6,7 @@ import zlib
 
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
-from src.pngd.decoder.crc32 import calculate_crc32
+from src.ppng.decoder.crc32 import calculate_crc32
 
 class TestCRC32:
     def _assert_equal_crc32(self, data: bytes) -> None:

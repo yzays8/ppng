@@ -1,7 +1,7 @@
 import sys
 import os
 
-import pngd
+import ppng
 
 def main(argv: list[str]) -> int | None:
     def usage():
@@ -13,9 +13,9 @@ def main(argv: list[str]) -> int | None:
 
     try:
         with open(argv[1], 'rb') as f:
-            decoder = pngd.Decoder(is_logging=True)
+            decoder = ppng.Decoder(is_logging=True)
             image = decoder.decode_png(f)
-            pngd.show_image(image, os.path.basename(argv[1]))
+            ppng.show_image(image, os.path.basename(argv[1]))
         return
     except FileNotFoundError:
         print(f'File not found: {os.path.abspath(argv[1])}')
