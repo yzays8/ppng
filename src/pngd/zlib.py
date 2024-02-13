@@ -35,7 +35,7 @@ class Zlib:
         flg = data.read_byte(reverse=False)
         return cmf, flg
 
-    def _interpret_zlib_header(self, cmf: int, flg: int) -> bytes:
+    def _interpret_zlib_header(self, cmf: int, flg: int) -> None:
         if (cmf << 8 | flg) % 31 != 0:
             logger.error('Invalid zlib header')
             sys.exit(1)
