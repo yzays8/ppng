@@ -5,7 +5,7 @@ import numpy as np
 
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
-from src.pngd.decoder import Decoder
+from src.pngd.decoder.decoder import Decoder
 
 class TestDecode:
     TEST_DIR = os.path.join(ROOT_PATH, 'tests/image/mandrill/')

@@ -5,8 +5,8 @@ import numpy as np
 from toolz import pipe
 from loguru import logger
 
+from .. import decompressor
 from . import crc32
-from . import decompressor
 
 class Decoder:
     def __init__(self, is_logging: bool = False):

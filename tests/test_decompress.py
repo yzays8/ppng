@@ -6,7 +6,7 @@ import zlib
 
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
-from src.pngd.zlib import Zlib
+from src.pngd.decompressor.zlib import Zlib
 
 class TestDecompress:
     def test_no_compression_hello(self):

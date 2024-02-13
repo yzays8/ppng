@@ -1,2 +1,2 @@
-from .decoder import Decoder
-from .viewer import show_image
+from .decoder.decoder import Decoder
+from .viewer.viewer import show_image

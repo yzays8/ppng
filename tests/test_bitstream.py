@@ -4,7 +4,7 @@ import io
 
 ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT_PATH)
-from src.pngd.utils import BitStream
+from src.pngd.utils.utils import BitStream
 
 class TestBitStream:
     def test_read_bit_3F20(self):
