@@ -124,7 +124,8 @@ class Decoder:
                     logger.error(f'{color_type} is not allowed for gamma correction')
                     sys.exit(1)
                 case _:
-                    assert False
+                    logger.error(f'Color type {color_type} is not allowed')
+                    sys.exit(1)
 
         return color_data
 
@@ -284,12 +285,15 @@ class Decoder:
 
                         color_data[i][j] = (decompressed_data[data_start_index + j] + pr) % 256
                 case _:
-                    logger.error(f'Unsupported filter type: {filter_type}')
+                    logger.error(f'Filter type {filter_type} is not allowed')
                     sys.exit(1)
 
         return color_data
 
     def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int:
+        if (bit_depth != 8) and (bit_depth != 16):
+            logger.error(f'Unsupported bit depth: {bit_depth}')
+            sys.exit(1)
         match color_type:
             case 0:
                 # grayscale
@@ -307,7 +311,8 @@ class Decoder:
                 # RGB + alpha
                 bits_per_pixel = bit_depth * 4
             case _:
-                assert False, f'Unsupported color type: {color_type}'
+                logger.error(f'Color type {color_type} is not allowed')
+                sys.exit(1)
 
         return int(bits_per_pixel / 8)
 
