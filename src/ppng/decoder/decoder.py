@@ -130,7 +130,8 @@ class Decoder:
                         color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
                         color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
                     else:
-                        assert False, f'{bit_depth} bit for color type {color_type} is not allowed'
+                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
+                        sys.exit(1)
                 case 3:
                     logger.error(f'Not implemented color type {color_type}')
                     sys.exit(1)
