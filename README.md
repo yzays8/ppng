@@ -6,10 +6,10 @@ ppng is a simple PNG decoder implemented from scratch at the level of zlib and D
 
 ## Support
 
-ppng supports decoding of all PNG image formats except color type 0 (grayscale) at bit depths of 1, 2, and 4 bits. It also supports tEXt, tIME, and gAMA as auxiliary chunks.
+ppng supports decoding of all PNG image formats except color type 0 (gray-scale) at bit depths of 1, 2, and 4 bits. It also supports tEXt, tIME, and gAMA as auxiliary chunks.
 
 ## Usage
 
 ```sh
-bash run.sh
+bash run.sh <PNG image>
 ```
