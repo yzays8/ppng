@@ -11,10 +11,9 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-cd src
 if [[ -z "$@" ]]; then
-    python3 main.py
+    python3 src/main.py
 else
-    python3 main.py ../"$@"
+    python3 src/main.py "$@"
 fi
 deactivate
