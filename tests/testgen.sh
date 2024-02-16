@@ -53,6 +53,7 @@ convert $ORIG_IMAGE_PATH -define png:color-type=6 -define png:bit-depth=8 $DEST_
 # Type 6, 16-bit
 convert $ORIG_IMAGE_PATH -define png:color-type=6 -define png:bit-depth=16 $DEST_DIR_PATH/type6-16bit.png
 
-# Type 2, 8-bit, gamma 0.3
-# This image is intended to be tested manually.
+# gamma 0.3
+# These images are intended to be tested manually.
 convert $ORIG_IMAGE_PATH -define png:color-type=2 -define png:bit-depth=8 +gamma 0.3 $DEST_DIR_PATH/type2-8bit-gamma03.png
+convert $ORIG_IMAGE_PATH -define png:color-type=3 -define png:bit-depth=8 +gamma 0.3 png8:$DEST_DIR_PATH/type3-8bit-gamma03.png

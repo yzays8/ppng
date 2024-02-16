@@ -116,7 +116,7 @@ class Decoder:
                     sys.exit(1)
 
             match color_type:
-                case 2 | 6 | 8 | 16:
+                case 2 | 3 | 6:
                     if bit_depth == 8 or bit_depth == 16:
                         # Alpha channel is not gamma corrected
                         color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
@@ -125,9 +125,6 @@ class Decoder:
                     else:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
-                case 3:
-                    logger.error(f'Not implemented color type {color_type}')
-                    sys.exit(1)
                 case 0 | 4:
                     logger.error(f'{color_type} is not allowed for gamma correction')
                     sys.exit(1)
