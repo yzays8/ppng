@@ -26,12 +26,9 @@ class Decoder:
         width, height, bit_depth, color_type, compression_method, filter_method, interlace_method \
             = self._read_IHDR(f)
 
-        match interlace_method:
-            case 0:
-                pass
-            case _:
-                logger.error(f'Interlace method {interlace_method} is not implemented')
-                sys.exit(1)
+        if compression_method != 0:
+            logger.error(f'Compression method {compression_method} is not implemented')
+            sys.exit(1)
 
         IDAT_chunk_data = io.BytesIO()
 
@@ -111,37 +108,39 @@ class Decoder:
 
     def _gamma_correct(self, color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
         # If gamma is 0.45455, gamma corrected value is same as original value
-        if gamma != 0.45455:
-            lut_exp = 1.0
-            crt_exp = 2.2
-            decoding_exp = 1 / (gamma * lut_exp * crt_exp)
+        if gamma == 0.45455:
+            return color_data
 
-            # Create gamma table
-            match bit_depth:
-                case 8:
-                    gamma_table = np.array([int(pow(i / 255, decoding_exp) * 255) for i in range(256)])
-                case 16:
-                    gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
-                case _:
-                    logger.error(f'{bit_depth} bit is not allowed for gamma correction')
-                    sys.exit(1)
+        lut_exp = 1.0
+        crt_exp = 2.2
+        decoding_exp = 1 / (gamma * lut_exp * crt_exp)
 
-            match color_type:
-                case 2 | 3 | 6:
-                    if bit_depth == 8 or bit_depth == 16:
-                        # Alpha channel is not gamma corrected
-                        color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
-                        color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
-                        color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
-                    else:
-                        logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
-                        sys.exit(1)
-                case 0 | 4:
-                    logger.error(f'{color_type} is not allowed for gamma correction')
+        # Create gamma table
+        match bit_depth:
+            case 8:
+                gamma_table = np.array([int(pow(i / 255, decoding_exp) * 255) for i in range(256)])
+            case 16:
+                gamma_table = np.array([int(pow(i / 65535, decoding_exp) * 65535) for i in range(65536)])
+            case _:
+                logger.error(f'{bit_depth} bit is not allowed for gamma correction')
+                sys.exit(1)
+
+        match color_type:
+            case 2 | 3 | 6:
+                if bit_depth == 8 or bit_depth == 16:
+                    # Alpha channel is not gamma corrected
+                    color_data[:, :, 0] = gamma_table[color_data[:, :, 0]]
+                    color_data[:, :, 1] = gamma_table[color_data[:, :, 1]]
+                    color_data[:, :, 2] = gamma_table[color_data[:, :, 2]]
+                else:
+                    logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                     sys.exit(1)
-                case _:
-                    logger.error(f'Color type {color_type} is not allowed')
-                    sys.exit(1)
+            case 0 | 4:
+                logger.error(f'{color_type} is not allowed for gamma correction')
+                sys.exit(1)
+            case _:
+                logger.error(f'Color type {color_type} is not allowed')
+                sys.exit(1)
 
         return color_data
 
@@ -265,8 +264,10 @@ class Decoder:
                     # All pixels in a scanline are packed into bytes without regard to the byte boundaries.
                     # If bit depth is less than 8, some low-order bits of the last byte of the scanline are not used (undefined value).
                     bytes_per_line = bit_depth * width // 8 + 1
+                corr_byte_dist = 1
             case 8 | 16:
                 bytes_per_line = width * bytes_per_pixel
+                corr_byte_dist = bytes_per_pixel
             case _:
                 logger.error(f'Bit depth {bit_depth} is not allowed')
                 sys.exit(1)
@@ -277,11 +278,6 @@ class Decoder:
             line_start_index = i * (1 + bytes_per_line)
             filter_type = data[line_start_index]
             data_start_index = line_start_index + 1
-
-            if bit_depth < 8:
-                corr_byte_dist = 1
-            else:
-                corr_byte_dist = bytes_per_pixel
 
             match filter_type:
                 case 0: # No filter
