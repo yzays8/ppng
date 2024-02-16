@@ -14,12 +14,12 @@ class Zlib:
         logger.add(sys.stdout, filter=lambda record: is_logging)
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not is_logging)
 
-    def decompress_zlib(self, data: bytes) -> bytes:
+    def decompress(self, data: bytes) -> bytes:
         bit_stream = BitStream(data)
 
         self._interpret_zlib_header(*self._read_zlib_header(bit_stream))
 
-        decompressed_data = Deflate(self.is_logging).decompress_deflate(bit_stream)
+        decompressed_data = Deflate(self.is_logging).decompress(bit_stream)
 
         adler32_checksum = bit_stream.read_bytes(4, reverse=False)
         calculated_checksum = calculate_adler32(decompressed_data)

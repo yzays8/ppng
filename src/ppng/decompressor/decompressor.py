@@ -7,4 +7,4 @@ class Decompressor():
         self.is_logging = is_logging
 
     def decompress(self, data: io.BytesIO) -> bytes:
-        return Zlib(self.is_logging).decompress_zlib(data.getbuffer().tobytes())
+        return Zlib(self.is_logging).decompress(data.getbuffer().tobytes())

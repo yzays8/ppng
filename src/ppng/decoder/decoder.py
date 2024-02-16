@@ -94,7 +94,7 @@ class Decoder:
             IDAT_chunk_data,
             decompressor.Decompressor(self._is_logging).decompress,
             lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
-            lambda x: self._adjust_color_data(x, height, width, color_type, bit_depth, palette),
+            lambda x: self._generate_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
 
@@ -137,37 +137,37 @@ class Decoder:
 
         return color_data
 
-    def _adjust_color_data(self, color_data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
-        new_color_data: np.ndarray = None
+    def _generate_color_data(self, data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
+        new_data: np.ndarray = None
 
         match color_type:
             case 0:
                 # grayscale
                 match bit_depth:
                     case 1:
-                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
-                                new_color_data[i][j] = (color_data[i][j // 8] >> (7 - j % 8) & 0b1) * 0xFF
+                                new_data[i][j] = (data[i][j // 8] >> (7 - j % 8) & 0b1) * 0xFF
                     case 2:
-                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 # Map 0b00 ~ 0b11 to 0x00 ~ 0xFF
-                                new_color_data[i][j] = (color_data[i][j // 4] >> (6 - 2 * (j % 4)) & 0b11) * 0x55
+                                new_data[i][j] = (data[i][j // 4] >> (6 - 2 * (j % 4)) & 0b11) * 0x55
                     case 4:
-                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 # Map 0b0000 ~ 0b1111 to 0x00 ~ 0xFF
-                                new_color_data[i][j] = (color_data[i][j // 2] >> (4 - 4 * (j % 2)) & 0b1111) * 0x11
+                                new_data[i][j] = (data[i][j // 2] >> (4 - 4 * (j % 2)) & 0b1111) * 0x11
                     case 8:
-                        new_color_data = color_data.reshape(height, width)
+                        new_data = data.reshape(height, width)
                     case 16:
-                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint16)
+                        new_data = np.ndarray(shape=(height, width), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
-                                new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
+                                new_data[i][j] = data[i][j * 2] << 8 |  data[i][j * 2 + 1]
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -177,14 +177,14 @@ class Decoder:
                     logger.warning('Palette is found but color type is 2')
                 match bit_depth:
                     case 8:
-                        new_color_data = color_data.reshape(height, width, 3)
+                        new_data = data.reshape(height, width, 3)
                     case 16:
-                        new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
+                        new_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
-                                new_color_data[i][j][0] = color_data[i][j * 6] << 8 |  color_data[i][j * 6 + 1]
-                                new_color_data[i][j][1] = color_data[i][j * 6 + 2] << 8 |  color_data[i][j * 6 + 3]
-                                new_color_data[i][j][2] = color_data[i][j * 6 + 4] << 8 |  color_data[i][j * 6 + 5]
+                                new_data[i][j][0] = data[i][j * 6] << 8 |  data[i][j * 6 + 1]
+                                new_data[i][j][1] = data[i][j * 6 + 2] << 8 |  data[i][j * 6 + 3]
+                                new_data[i][j][2] = data[i][j * 6 + 4] << 8 |  data[i][j * 6 + 5]
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -195,10 +195,10 @@ class Decoder:
                     sys.exit(1)
                 match bit_depth:
                     case 1 | 2 | 4 | 8:
-                        new_color_data = np.ndarray(shape=(height, width, 3), dtype=np.uint8)
+                        new_data = np.ndarray(shape=(height, width, 3), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
-                                new_color_data[i][j] = palette[color_data[i][j]]
+                                new_data[i][j] = palette[data[i][j]]
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -206,18 +206,18 @@ class Decoder:
                 # grayscale + alpha
                 match bit_depth:
                     case 8:
-                        color_data = color_data.reshape(height, width, 2)
-                        r = g = b = color_data[:, :, 0] # grayscale
-                        a = color_data[:, :, 1]         # alpha
-                        new_color_data = np.dstack((r, g, b, a))
+                        data = data.reshape(height, width, 2)
+                        r = g = b = data[:, :, 0] # grayscale
+                        a = data[:, :, 1]         # alpha
+                        new_data = np.dstack((r, g, b, a))
                     case 16:
-                        new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        new_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
-                                gray: np.uint16 = color_data[i][j * 4] << 8 |  color_data[i][j * 4 + 1]
-                                alpha: np.uint16 = color_data[i][j * 4 + 2] << 8 |  color_data[i][j * 4 + 3]
-                                new_color_data[i][j][0] = new_color_data[i][j][1] = new_color_data[i][j][2] = new_color_data[i][j][3] = gray
-                                new_color_data[i][j][3] = alpha
+                                gray: np.uint16 = data[i][j * 4] << 8 |  data[i][j * 4 + 1]
+                                alpha: np.uint16 = data[i][j * 4 + 2] << 8 |  data[i][j * 4 + 3]
+                                new_data[i][j][0] = new_data[i][j][1] = new_data[i][j][2] = new_data[i][j][3] = gray
+                                new_data[i][j][3] = alpha
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -227,15 +227,15 @@ class Decoder:
                     logger.warning('Palette is found but color type is 6')
                 match bit_depth:
                     case 8:
-                        new_color_data = color_data.reshape(height, width, 4)
+                        new_data = data.reshape(height, width, 4)
                     case 16:
-                        new_color_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        new_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
-                                new_color_data[i][j][0] = color_data[i][j * 8] << 8 |  color_data[i][j * 8 + 1]
-                                new_color_data[i][j][1] = color_data[i][j * 8 + 2] << 8 |  color_data[i][j * 8 + 3]
-                                new_color_data[i][j][2] = color_data[i][j * 8 + 4] << 8 |  color_data[i][j * 8 + 5]
-                                new_color_data[i][j][3] = color_data[i][j * 8 + 6] << 8 |  color_data[i][j * 8 + 7]
+                                new_data[i][j][0] = data[i][j * 8] << 8 |  data[i][j * 8 + 1]
+                                new_data[i][j][1] = data[i][j * 8 + 2] << 8 |  data[i][j * 8 + 3]
+                                new_data[i][j][2] = data[i][j * 8 + 4] << 8 |  data[i][j * 8 + 5]
+                                new_data[i][j][3] = data[i][j * 8 + 6] << 8 |  data[i][j * 8 + 7]
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -243,9 +243,9 @@ class Decoder:
                 logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
 
-        assert new_color_data is not None
+        assert new_data is not None
 
-        return new_color_data
+        return new_data
 
     # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
     def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> np.ndarray:

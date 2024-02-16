@@ -15,7 +15,7 @@ class Deflate:
         self.FIXED_HUFFMAN_TREE = self.create_fixed_huffman_tree()
         self.CODE_LENGTH_CODE_TABLE_INDEXES = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
 
-    def decompress_deflate(self, data_stream: BitStream) -> bytes:
+    def decompress(self, data_stream: BitStream) -> bytes:
         output = io.BytesIO()
 
         # Read deflate blocks
@@ -35,7 +35,7 @@ class Deflate:
                 case 0b01:
                     # Compressed with fixed Huffman codes
 
-                    self._decompress_compressed_data(data_stream, output, self.FIXED_HUFFMAN_TREE, dist_tree=None)
+                    self._decompress_compressed_section(data_stream, output, self.FIXED_HUFFMAN_TREE, dist_tree=None)
                 case 0b10:
                     # Compressed with dynamic Huffman codes
 
@@ -48,7 +48,7 @@ class Deflate:
                     literal_length_tree = self._create_literal_length_tree(data_stream, code_length_code_tree, hlit)
                     distance_tree = self._create_distance_tree(data_stream, code_length_code_tree, hdist)
 
-                    self._decompress_compressed_data(data_stream, output, literal_length_tree, distance_tree)
+                    self._decompress_compressed_section(data_stream, output, literal_length_tree, distance_tree)
                 case 0b11:
                     logger.error('BTYPE 0b11 is reserved for future use')
                     sys.exit(1)
@@ -129,7 +129,7 @@ class Deflate:
     def _create_distance_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, hdist: int) -> HuffmanTree:
         return self._create_tree_from_code_length_code_tree(input_stream, code_length_code_tree, hdist + 1)
 
-    def _decompress_compressed_data(
+    def _decompress_compressed_section(
             self, input_stream: BitStream, output_stream: io.BytesIO, literal_length_tree: HuffmanTree, dist_tree: HuffmanTree | None = None
         ) -> None:
         huffman_code, huffman_code_length = 0, 0
