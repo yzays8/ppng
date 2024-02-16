@@ -8,7 +8,7 @@ ppng is a simple PNG decoder implemented from scratch, including all related alg
 
 ppng supports decoding of all PNG image formats.
 
-- Greyscale (color type 0) - 1, 2, 4, 8, 16 bit
+- Grayscale (color type 0) - 1, 2, 4, 8, 16 bit
 - Truecolor (color type 2) - 8, 16 bit
 - Indexed-color (color type 3) - 1, 2, 4, 8 bit
 - Grayscale with alpha (color type 4) - 8, 16 bit
