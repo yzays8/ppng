@@ -67,6 +67,8 @@ class Decoder:
                     text = decompressor.Decompressor(self._is_logging).decompress(io.BytesIO(compressed_text))
                     if len(text) > 0:
                         logger.info(f'zTXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
+                    else:
+                        logger.info(f'zTXt: {keyword.decode("utf-8")}')
                 case 'tIME':
                     if length != 7:
                         logger.error('Invalid tIME chunk')
