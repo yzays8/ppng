@@ -310,9 +310,9 @@ class Decoder:
                         color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 4: # Paeth filter
                     for j in range(bytes_per_line):
-                        a = int(color_data[i][j - corr_byte_dist]) if j >= corr_byte_dist else 0                  # left
-                        b = int(color_data[i - 1][j]) if i > 0 else 0                                                               # upper
-                        c = int(color_data[i - 1][j - corr_byte_dist]) if i > 0 and j >= corr_byte_dist else 0    # upper left
+                        a = int(color_data[i][j - corr_byte_dist]) if j >= corr_byte_dist else 0                # left
+                        b = int(color_data[i - 1][j]) if i > 0 else 0                                           # upper
+                        c = int(color_data[i - 1][j - corr_byte_dist]) if i > 0 and j >= corr_byte_dist else 0  # upper left
 
                         # Find the value closest to the prediction from among a, b, c
                         p = a + b - c
