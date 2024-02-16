@@ -26,13 +26,6 @@ class Decoder:
         width, height, bit_depth, color_type, compression_method, filter_method, interlace_method \
             = self._read_IHDR(f)
 
-        match bit_depth:
-            case 1 | 2 | 4:
-                logger.error(f'Bit depth {bit_depth} is not implemented')
-                sys.exit(1)
-            case _:
-                pass
-
         match interlace_method:
             case 0:
                 pass
@@ -100,7 +93,7 @@ class Decoder:
         return pipe(
             IDAT_chunk_data,
             decompressor.Decompressor(self._is_logging).decompress,
-            lambda x: self._restore_filtered_image(x, width, height, bytes_per_pixel),
+            lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
             lambda x: self._adjust_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
@@ -151,6 +144,23 @@ class Decoder:
             case 0:
                 # grayscale
                 match bit_depth:
+                    case 1:
+                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        for i in range(height):
+                            for j in range(width):
+                                new_color_data[i][j] = (color_data[i][j // 8] >> (7 - j % 8) & 0b1) * 0xFF
+                    case 2:
+                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        for i in range(height):
+                            for j in range(width):
+                                # Map 0b00 ~ 0b11 to 0x00 ~ 0xFF
+                                new_color_data[i][j] = (color_data[i][j // 4] >> (6 - 2 * (j % 4)) & 0b11) * 0x55
+                    case 4:
+                        new_color_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        for i in range(height):
+                            for j in range(width):
+                                # Map 0b0000 ~ 0b1111 to 0x00 ~ 0xFF
+                                new_color_data[i][j] = (color_data[i][j // 2] >> (4 - 4 * (j % 2)) & 0b1111) * 0x11
                     case 8:
                         new_color_data = color_data.reshape(height, width)
                     case 16:
@@ -158,9 +168,6 @@ class Decoder:
                         for i in range(height):
                             for j in range(width):
                                 new_color_data[i][j] = color_data[i][j * 2] << 8 |  color_data[i][j * 2 + 1]
-                    case 1 | 2 | 4:
-                        logger.error(f'{bit_depth} bit for color type {color_type} is not implemented')
-                        sys.exit(1)
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
                         sys.exit(1)
@@ -236,55 +243,79 @@ class Decoder:
                 logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
 
-        assert new_color_data is not None, 'new_color_data is None'
+        assert new_color_data is not None
 
         return new_color_data
 
-    def _restore_filtered_image(self, decompressed_data: bytes, width: int, height: int, bytes_per_pixel: int) -> np.ndarray:
-        color_data = np.ndarray(shape=(height, bytes_per_pixel * width), dtype=np.uint8)
+    # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
+    def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> np.ndarray:
+        match bit_depth:
+            case 1 | 2 | 4:
+                if bit_depth * width % 8 == 0:
+                    bytes_per_line = bit_depth * width // 8
+                else:
+                    # All pixels in a scanline are packed into bytes without regard to the byte boundaries.
+                    # If bit depth is less than 8, some low-order bits of the last byte of the scanline are not used (undefined value).
+                    bytes_per_line = bit_depth * width // 8 + 1
+            case 8 | 16:
+                bytes_per_line = width * bytes_per_pixel
+            case _:
+                logger.error(f'Bit depth {bit_depth} is not allowed')
+                sys.exit(1)
+
+        color_data = np.ndarray(shape=(height, bytes_per_line), dtype=np.uint8)
 
         for i in range(height):
-            bytes_per_line = 1 + width * bytes_per_pixel
-            line_start_index = i * bytes_per_line
-            filter_type = decompressed_data[line_start_index]
+            line_start_index = i * (1 + bytes_per_line)
+            filter_type = data[line_start_index]
             data_start_index = line_start_index + 1
+
+            if bit_depth < 8:
+                corr_byte_dist = 1
+            else:
+                corr_byte_dist = bytes_per_pixel
 
             match filter_type:
                 case 0: # No filter
-                    for j in range(width * bytes_per_pixel):
-                        color_data[i][j] = decompressed_data[data_start_index + j]
+                    for j in range(bytes_per_line):
+                        color_data[i][j] = data[data_start_index + j]
                 case 1: # Sub filter
-                    for j in range(width * bytes_per_pixel):
-                        if j < bytes_per_pixel:
+                    for j in range(bytes_per_line):
+                        if j < corr_byte_dist:
                             pre = 0
                         else:
-                            pre = color_data[i][j - bytes_per_pixel]
+                            pre = color_data[i][j - corr_byte_dist]
 
-                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                        color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 2: # Up filter
-                    for j in range(width * bytes_per_pixel):
+                    for j in range(bytes_per_line):
                         if i <= 0:
                             pre = 0
                         else:
                             pre = color_data[i - 1][j]
 
-                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                        color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 3: # Average filter
-                    for j in range(width * bytes_per_pixel):
-                        pre = 0
-                        if j >= bytes_per_pixel and i > 0:
-                            pre = int((color_data[i][j - bytes_per_pixel]) + int(color_data[i - 1][j])) // 2
-                        elif j >= bytes_per_pixel:
-                            pre = color_data[i][j - bytes_per_pixel] // 2
+                    for j in range(bytes_per_line):
+                        if j >= corr_byte_dist and i > 0:
+                            # The scanline is not the first scanline, and not the first pixel of the scanline
+                            pre = int((color_data[i][j - corr_byte_dist]) + int(color_data[i - 1][j])) // 2
+                        elif j >= corr_byte_dist:
+                            # The scanline is the first scanline, but not the first pixel of the scanline
+                            pre = color_data[i][j - corr_byte_dist] // 2
                         elif i > 0:
+                            # The scanline is not the first scanline, but the first pixel of the scanline
                             pre = color_data[i - 1][j] // 2
+                        else:
+                            # The scanline is the first scanline, and the first pixel of the scanline
+                            pre = 0
 
-                        color_data[i][j] = (decompressed_data[data_start_index + j] + pre) % 256
+                        color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 4: # Paeth filter
-                    for j in range(width * bytes_per_pixel):
-                        a = int(color_data[i][j - bytes_per_pixel]) if j >= bytes_per_pixel else 0                  # left
-                        b = int(color_data[i - 1][j]) if i > 0 else 0                                               # upper
-                        c = int(color_data[i - 1][j - bytes_per_pixel]) if i > 0 and j >= bytes_per_pixel else 0    # upper left
+                    for j in range(bytes_per_line):
+                        a = int(color_data[i][j - corr_byte_dist]) if j >= corr_byte_dist else 0                  # left
+                        b = int(color_data[i - 1][j]) if i > 0 else 0                                                               # upper
+                        c = int(color_data[i - 1][j - corr_byte_dist]) if i > 0 and j >= corr_byte_dist else 0    # upper left
 
                         # Find the value closest to the prediction from among a, b, c
                         p = a + b - c
@@ -298,17 +329,14 @@ class Decoder:
                         else:
                             pr = c
 
-                        color_data[i][j] = (decompressed_data[data_start_index + j] + pr) % 256
+                        color_data[i][j] = (data[data_start_index + j] + pr) % 256
                 case _:
                     logger.error(f'Filter type {filter_type} is not allowed')
                     sys.exit(1)
 
         return color_data
 
-    def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int:
-        if (bit_depth != 8) and (bit_depth != 16):
-            logger.error(f'Unsupported bit depth: {bit_depth}')
-            sys.exit(1)
+    def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int | float:
         match color_type:
             case 0:
                 # grayscale
@@ -329,7 +357,10 @@ class Decoder:
                 logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
 
-        return int(bits_per_pixel / 8)
+        if bits_per_pixel < 8:
+            return bits_per_pixel / 8
+        else:
+            return int(bits_per_pixel / 8)
 
     def _validate_header(self, f: io.BufferedReader) -> bool:
         return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'
