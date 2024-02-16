@@ -58,6 +58,15 @@ class Decoder:
                         logger.info(f'tEXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
                     else:
                         logger.info(f'tEXt: {keyword.decode("utf-8")}')
+                case 'zTXt':
+                    keyword, others = data.split(b'\x00', 1)
+                    compression_method, compressed_text = others[0], others[1:]
+                    if compression_method != 0:
+                        logger.error('Invalid zTXt chunk')
+                        sys.exit(1)
+                    text = decompressor.Decompressor(self._is_logging).decompress(io.BytesIO(compressed_text))
+                    if len(text) > 0:
+                        logger.info(f'zTXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
                 case 'tIME':
                     if length != 7:
                         logger.error('Invalid tIME chunk')
