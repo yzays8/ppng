@@ -95,6 +95,10 @@ class Deflate:
             while True:
                 huffman_code = (huffman_code << 1) | input_stream.read_bit()
                 huffman_code_length += 1
+                if huffman_code_length > code_length_code_tree.height:
+                    logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                    sys.exit(1)
+
                 decoded_value = code_length_code_tree.search(huffman_code, huffman_code_length)
                 if decoded_value is None:
                     continue
@@ -139,6 +143,9 @@ class Deflate:
         while True:
             huffman_code = (huffman_code << 1) | input_stream.read_bit()
             huffman_code_length += 1
+            if huffman_code_length > literal_length_tree.height:
+                logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                sys.exit(1)
 
             decoded_value = literal_length_tree.search(huffman_code, huffman_code_length)
             if decoded_value is None:
@@ -197,11 +204,14 @@ class Deflate:
             dist_value = input_stream.read_bits(5)
         else:
             # Compressed with dynamic Huffman codes
-            huffman_code = 0
-            huffman_code_length = 0
+            huffman_code, huffman_code_length = 0, 0
             while True:
                 huffman_code = (huffman_code << 1) | input_stream.read_bit()
                 huffman_code_length += 1
+                if huffman_code_length > dist_tree.height:
+                    logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                    sys.exit(1)
+
                 dist_value = dist_tree.search(huffman_code, huffman_code_length)
                 if dist_value is not None:
                     break

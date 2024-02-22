@@ -15,10 +15,11 @@ class Node:
 
 class HuffmanTree:
     def __init__(self) -> None:
-        self.root = Node(None)
+        self._root = Node(None)
+        self.height = 0
 
     def insert(self, symbol: int | None, huffman_code: int, huffman_code_length: int) -> None:
-        current_node = self.root
+        current_node = self._root
         for bit in bin(huffman_code)[2:].zfill(huffman_code_length):
             if bit == '0':
                 if current_node.left is None:
@@ -33,8 +34,10 @@ class HuffmanTree:
         # Set the symbol to the leaf node
         current_node.symbol = symbol
 
+        self.height = max(self.height, huffman_code_length)
+
     def search(self, huffman_code: int, huffman_code_length: int) -> int | None:
-        current_node = self.root
+        current_node = self._root
         for bit in bin(huffman_code)[2:].zfill(huffman_code_length):
             if bit == '0':
                 if current_node.left is None:
@@ -52,7 +55,7 @@ class HuffmanTree:
                 print_tree(node.right, start_depth + 1)
                 print(f'{" " * 4 * start_depth} -> [{node.symbol}]')
                 print_tree(node.left, start_depth + 1)
-        print_tree(self.root, 0)
+        print_tree(self._root, 0)
 
     def get_symbol_code_table(self) -> dict[int, str]:
         symbol_code_table = {}
@@ -63,7 +66,7 @@ class HuffmanTree:
                 else:
                     get_symbol_code(node.left, code + '0')
                     get_symbol_code(node.right, code + '1')
-        get_symbol_code(self.root, '')
+        get_symbol_code(self._root, '')
         return symbol_code_table
 
     # Make canonical huffman tree from decoded values and lengths of their codes
@@ -78,8 +81,7 @@ class HuffmanTree:
         )
 
         huffman_tree = HuffmanTree()
-        current_code = 0
-        current_code_length = 0
+        current_code, current_code_length = 0, 0
         for symbol, length in table:
             if length > current_code_length:
                 # Each time the code length increases, a zero is appended to the end of the code.
