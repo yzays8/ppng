@@ -63,13 +63,13 @@ class Deflate:
     @staticmethod
     def create_fixed_huffman_tree() -> HuffmanTree:
         huffman_tree = HuffmanTree()
-        for value in range(0, 143 + 1):
+        for value in range(0, 144):
             huffman_tree.insert(value, 0b00110000 + value, 8)
-        for value in range(144, 255 + 1):
+        for value in range(144, 256):
             huffman_tree.insert(value, 0b110010000 + value - 144, 9)
-        for value in range(256, 279 + 1):
+        for value in range(256, 280):
             huffman_tree.insert(value, 0b0000000 + value - 256, 7)
-        for value in range(280, 287 + 1):
+        for value in range(280, 288):
             huffman_tree.insert(value, 0b11000000 + value - 280, 8)
         return huffman_tree
 
@@ -98,27 +98,30 @@ class Deflate:
                 decoded_value = code_length_code_tree.search(huffman_code, huffman_code_length)
                 if decoded_value is None:
                     continue
-                elif decoded_value == 16:
-                    # Repeat previous value 3-6 times
-                    extra_bits = input_stream.read_bits(2, reverse=False)
-                    for _ in range(3 + extra_bits):
-                        table[i] = table[i - 1]
+
+                match decoded_value:
+                    case 16:
+                        # Repeat previous value 3-6 times
+                        extra_bits = input_stream.read_bits(2, reverse=False)
+                        for _ in range(3 + extra_bits):
+                            table[i] = table[i - 1]
+                            i += 1
+                    case 17:
+                        # Repeat 0 for 3-10 times
+                        extra_bits = input_stream.read_bits(3, reverse=False)
+                        for _ in range(3 + extra_bits):
+                            table[i] = 0
+                            i += 1
+                    case 18:
+                        # Repeat 0 for 11-138 times
+                        extra_bits = input_stream.read_bits(7, reverse=False)
+                        for _ in range(11 + extra_bits):
+                            table[i] = 0
+                            i += 1
+                    case _:
+                        table[i] = decoded_value
                         i += 1
-                elif decoded_value == 17:
-                    # Repeat 0 for 3-10 times
-                    extra_bits = input_stream.read_bits(3, reverse=False)
-                    for _ in range(3 + extra_bits):
-                        table[i] = 0
-                        i += 1
-                elif decoded_value == 18:
-                    # Repeat 0 for 11-138 times
-                    extra_bits = input_stream.read_bits(7, reverse=False)
-                    for _ in range(11 + extra_bits):
-                        table[i] = 0
-                        i += 1
-                else:
-                    table[i] = decoded_value
-                    i += 1
+
                 break
 
         return HuffmanTree.create_canonical_huffman_tree(table)
@@ -140,16 +143,17 @@ class Deflate:
             decoded_value = literal_length_tree.search(huffman_code, huffman_code_length)
             if decoded_value is None:
                 continue
-            elif decoded_value in range(0, 255 + 1):
+
+            if decoded_value in range(0, 256):
                 output_stream.write(decoded_value.to_bytes(1))
-                huffman_code_length = 0
-                huffman_code = 0
-            elif decoded_value in range(257, 285 + 1):
-                self._decode_LZ77(input_stream, decoded_value, output_stream, dist_tree=dist_tree)
                 huffman_code_length = 0
                 huffman_code = 0
             elif decoded_value == 256:
                 break
+            elif decoded_value in range(257, 286):
+                self._decode_LZ77(input_stream, decoded_value, output_stream, dist_tree=dist_tree)
+                huffman_code_length = 0
+                huffman_code = 0
             else:
                 # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
                 logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
@@ -160,22 +164,22 @@ class Deflate:
 
     def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: HuffmanTree | None = None) -> None:
         # Get the length of the match
-        if length_value in range(257, 264 + 1):
+        if length_value in range(257, 265):
             base_match_length = 3 + length_value - 257
             extra_bits_length = 0
-        elif length_value in range(265, 268 + 1):
+        elif length_value in range(265, 269):
             base_match_length = 11 + 2 * (length_value - 265)
             extra_bits_length = 1
-        elif length_value in range(269, 272 + 1):
+        elif length_value in range(269, 273):
             base_match_length = 19 + 4 * (length_value - 269)
             extra_bits_length = 2
-        elif length_value in range(273, 276 + 1):
+        elif length_value in range(273, 277):
             base_match_length = 35 + 8 * (length_value - 273)
             extra_bits_length = 3
-        elif length_value in range(277, 280 + 1):
+        elif length_value in range(277, 281):
             base_match_length = 67 + 16 * (length_value - 277)
             extra_bits_length = 4
-        elif length_value in range(281, 284 + 1):
+        elif length_value in range(281, 285):
             base_match_length = 131 + 32 * (length_value - 281)
             extra_bits_length = 5
         elif length_value == 285:
@@ -203,46 +207,46 @@ class Deflate:
                     break
 
         # Get the distance of the match
-        if dist_value in range(0, 3 + 1):
+        if dist_value in range(0, 4):
             base_match_distance = dist_value + 1
             extra_bits_length = 0
-        elif dist_value in range(4, 5 + 1):
+        elif dist_value in range(4, 6):
             base_match_distance = 5 + 2 * (dist_value - 4)
             extra_bits_length = 1
-        elif dist_value in range(6, 7 + 1):
+        elif dist_value in range(6, 8):
             base_match_distance = 9 + 4 * (dist_value - 6)
             extra_bits_length = 2
-        elif dist_value in range(8, 9 + 1):
+        elif dist_value in range(8, 10):
             base_match_distance = 17 + 8 * (dist_value - 8)
             extra_bits_length = 3
-        elif dist_value in range(10, 11 + 1):
+        elif dist_value in range(10, 12):
             base_match_distance = 33 + 16 * (dist_value - 10)
             extra_bits_length = 4
-        elif dist_value in range(12, 13 + 1):
+        elif dist_value in range(12, 14):
             base_match_distance = 65 + 32 * (dist_value - 12)
             extra_bits_length = 5
-        elif dist_value in range(14, 15 + 1):
+        elif dist_value in range(14, 16):
             base_match_distance = 129 + 64 * (dist_value - 14)
             extra_bits_length = 6
-        elif dist_value in range(16, 17 + 1):
+        elif dist_value in range(16, 18):
             base_match_distance = 257 + 128 * (dist_value - 16)
             extra_bits_length = 7
-        elif dist_value in range(18, 19 + 1):
+        elif dist_value in range(18, 20):
             base_match_distance = 513 + 256 * (dist_value - 18)
             extra_bits_length = 8
-        elif dist_value in range(20, 21 + 1):
+        elif dist_value in range(20, 22):
             base_match_distance = 1025 + 512 * (dist_value - 20)
             extra_bits_length = 9
-        elif dist_value in range(22, 23 + 1):
+        elif dist_value in range(22, 24):
             base_match_distance = 2049 + 1024 * (dist_value - 22)
             extra_bits_length = 10
-        elif dist_value in range(24, 25 + 1):
+        elif dist_value in range(24, 26):
             base_match_distance = 4097 + 2048 * (dist_value - 24)
             extra_bits_length = 11
-        elif dist_value in range(26, 27 + 1):
+        elif dist_value in range(26, 28):
             base_match_distance = 8193 + 4096 * (dist_value - 26)
             extra_bits_length = 12
-        elif dist_value in range(28, 29 + 1):
+        elif dist_value in range(28, 30):
             base_match_distance = 16385 + 8192 * (dist_value - 28)
             extra_bits_length = 13
         else:

@@ -19,7 +19,7 @@ class Decoder:
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not self._is_logging)
 
     def decode_png(self, f: io.BufferedReader) -> np.ndarray:
-        if not self._validate_header(f):
+        if not self._is_valid_header(f):
             logger.error('Invalid PNG image')
             sys.exit(1)
 
@@ -98,9 +98,12 @@ class Decoder:
         bytes_per_pixel = self._get_bytes_per_pixel(color_type, bit_depth)
         logger.info(f'Bytes per pixel: {bytes_per_pixel}')
 
+        logger.info('Decompressing...')
+        decompressed_data = decompressor.Decompressor(self._is_logging).decompress(IDAT_chunk_data)
+        logger.info('Decompressed successfully')
+
         return pipe(
-            IDAT_chunk_data,
-            decompressor.Decompressor(self._is_logging).decompress,
+            decompressed_data,
             lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
             lambda x: self._generate_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
@@ -366,8 +369,8 @@ class Decoder:
         else:
             return int(bits_per_pixel / 8)
 
-    def _validate_header(self, f: io.BufferedReader) -> bool:
-        return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'
+    def _is_valid_header(self, f: io.BufferedReader) -> bool:
+        return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A' # "HTJ P N G CR LF SUB LF"
 
     def _read_chunk(self, f: io.BufferedReader) -> tuple[int, str, bytes, int]:
         # Big endian

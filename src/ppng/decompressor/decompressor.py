@@ -4,7 +4,7 @@ from .zlib import Zlib
 
 class Decompressor():
     def __init__(self, is_logging: bool = False) -> None:
-        self.is_logging = is_logging
+        self._is_logging = is_logging
 
     def decompress(self, data: io.BytesIO) -> bytes:
-        return Zlib(self.is_logging).decompress(data.getbuffer().tobytes())
+        return Zlib(self._is_logging).decompress(data.getbuffer().tobytes())
