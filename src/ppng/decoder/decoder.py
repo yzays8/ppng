@@ -98,12 +98,9 @@ class Decoder:
         bytes_per_pixel = self._get_bytes_per_pixel(color_type, bit_depth)
         logger.info(f'Bytes per pixel: {bytes_per_pixel}')
 
-        logger.info('Decompressing...')
-        decompressed_data = decompressor.Decompressor(self._is_logging).decompress(IDAT_chunk_data)
-        logger.info('Decompressed successfully')
-
         return pipe(
-            decompressed_data,
+            IDAT_chunk_data,
+            decompressor.Decompressor(self._is_logging).decompress,
             lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
             lambda x: self._generate_color_data(x, height, width, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
@@ -113,6 +110,8 @@ class Decoder:
         # If gamma is 0.45455, gamma corrected value is same as original value
         if gamma == 0.45455:
             return color_data
+
+        logger.info('Start gamma correction')
 
         lut_exp = 1.0
         crt_exp = 2.2
@@ -145,10 +144,11 @@ class Decoder:
                 logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
 
+        logger.info('Finish gamma correction successfully')
         return color_data
 
     def _generate_color_data(self, data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
-        new_data: np.ndarray = None
+        logger.info('Start generating color data')
 
         match color_type:
             case 0:
@@ -255,10 +255,12 @@ class Decoder:
 
         assert new_data is not None
 
+        logger.info('Finish generating color data successfully')
         return new_data
 
     # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
     def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> np.ndarray:
+        logger.info('Start removing filter')
         match bit_depth:
             case 1 | 2 | 4:
                 if bit_depth * width % 8 == 0:
@@ -341,6 +343,7 @@ class Decoder:
                     logger.error(f'Filter type {filter_type} is not allowed')
                     sys.exit(1)
 
+        logger.info('Finish removing filter successfully')
         return color_data
 
     def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int | float:
