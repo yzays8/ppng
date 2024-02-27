@@ -45,8 +45,8 @@ class Deflate:
 
                     code_length_code_tree = self._create_code_length_code_tree(data_stream, hclen)
 
-                    literal_length_tree = self._create_literal_length_tree(data_stream, code_length_code_tree, hlit)
-                    distance_tree = self._create_distance_tree(data_stream, code_length_code_tree, hdist)
+                    literal_length_tree = self._create_tree_from_code_length_code_tree(data_stream, code_length_code_tree, hlit + 257)
+                    distance_tree = self._create_tree_from_code_length_code_tree(data_stream, code_length_code_tree, hdist + 1)
 
                     self._decompress_compressed_section(data_stream, output, literal_length_tree, distance_tree)
                 case 0b11:
@@ -129,12 +129,6 @@ class Deflate:
                 break
 
         return HuffmanTree.create_canonical_huffman_tree(table)
-
-    def _create_literal_length_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, hlit: int) -> HuffmanTree:
-        return self._create_tree_from_code_length_code_tree(input_stream, code_length_code_tree, hlit + 257)
-
-    def _create_distance_tree(self, input_stream: BitStream, code_length_code_tree: HuffmanTree, hdist: int) -> HuffmanTree:
-        return self._create_tree_from_code_length_code_tree(input_stream, code_length_code_tree, hdist + 1)
 
     def _decompress_compressed_section(
             self, input_stream: BitStream, output_stream: io.BytesIO, literal_length_tree: HuffmanTree, dist_tree: HuffmanTree | None = None
