@@ -160,9 +160,6 @@ class Deflate:
                 logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
                 sys.exit(1)
 
-    def _decode_fixed_huffman_code(self, huffman_code: int, huffman_code_length: int) -> int | None:
-        return self.FIXED_HUFFMAN_TREE.search(huffman_code, huffman_code_length)
-
     def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: HuffmanTree | None = None) -> None:
         # Get the length of the match
         if length_value in range(257, 265):

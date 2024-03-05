@@ -369,8 +369,7 @@ class Decoder:
 
         if bits_per_pixel < 8:
             return bits_per_pixel / 8
-        else:
-            return int(bits_per_pixel / 8)
+        return int(bits_per_pixel / 8)
 
     def _is_valid_header(self, f: io.BufferedReader) -> bool:
         return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A' # "HTJ P N G CR LF SUB LF"

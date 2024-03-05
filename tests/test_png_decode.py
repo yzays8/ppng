@@ -11,12 +11,11 @@ class TestDecode:
     TEST_DIR = os.path.join(ROOT_PATH, 'tests/image/mandrill/')
 
     def _assert_equal_image(self, file_name: str) -> None:
-        decoder = Decoder()
         file_name = self.TEST_DIR + file_name
         expected = cv2.imread(file_name, cv2.IMREAD_UNCHANGED)
         try:
             with open(file_name, 'rb') as f:
-                dec_data = decoder.decode_png(f)
+                dec_data = Decoder().decode_png(f)
                 if dec_data.ndim == 3:
                     # if the shape of dec_data is (height, width, channel)
                     if dec_data.shape[2] == 3:
