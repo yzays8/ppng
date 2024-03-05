@@ -28,7 +28,7 @@ It also supports `tEXt`, `zTXt`, `tIME`, and `gAMA` as ancillary chunks.
 ## Usage
 
 ```sh
-bash run.sh <PNG image>
+bash run.sh [-l, --logging] <PNG image>
 ```
 
 ## Testing
