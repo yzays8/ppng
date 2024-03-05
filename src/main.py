@@ -1,30 +1,26 @@
-import sys
 import os
+
+import typer
 
 import ppng
 
-def main(argv: list[str]) -> int | None:
-    def usage() -> None:
-        print(f'usage: python3 {argv[0]} <file>')
-
-    if len(argv) != 2:
-        return usage()
-
+def main(
+        file: str = typer.Argument(..., help="PNG file to decode"),
+        is_logging: bool = typer.Option(False, "-l", "--logging", help="Enable logging")
+    ) -> None:
     try:
-        with open(argv[1], 'rb') as f:
-            decoder = ppng.Decoder(is_logging=True)
-            image = decoder.decode_png(f)
-            ppng.show_image(image, os.path.basename(argv[1]))
+        with open(file, 'rb') as f:
+            image = ppng.Decoder(is_logging=is_logging).decode_png(f)
+            ppng.show_image(image, os.path.basename(file))
         return
     except FileNotFoundError:
-        print(f'File not found: {os.path.abspath(argv[1])}')
+        print(f'File not found: {os.path.abspath(file)}')
     except IsADirectoryError:
-        print(f'Is a directory: {os.path.abspath(argv[1])}')
+        print(f'Is a directory: {os.path.abspath(file)}')
     except PermissionError:
-        print(f'Permission denied: {os.path.abspath(argv[1])}')
+        print(f'Permission denied: {os.path.abspath(file)}')
     except Exception as e:
         print(e)
-    return 1
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    typer.run(main)
