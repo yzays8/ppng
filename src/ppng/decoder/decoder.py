@@ -226,7 +226,7 @@ class Decoder:
                             for j in range(width):
                                 gray: np.uint16 = data[i][j * 4] << 8 |  data[i][j * 4 + 1]
                                 alpha: np.uint16 = data[i][j * 4 + 2] << 8 |  data[i][j * 4 + 3]
-                                new_data[i][j][0] = new_data[i][j][1] = new_data[i][j][2] = new_data[i][j][3] = gray
+                                new_data[i][j][0] = new_data[i][j][1] = new_data[i][j][2] = gray
                                 new_data[i][j][3] = alpha
                     case _:
                         logger.error(f'{bit_depth} bit for color type {color_type} is not allowed')
