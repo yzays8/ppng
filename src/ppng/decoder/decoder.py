@@ -1,7 +1,7 @@
 import sys
 import io
-import numpy as np
 
+import numpy as np
 from toolz import pipe
 from loguru import logger
 
