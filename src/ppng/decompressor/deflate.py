@@ -145,13 +145,13 @@ class Deflate:
             if decoded_value is None:
                 continue
 
-            if decoded_value in range(0, 256):
+            if 0 <= decoded_value < 256:
                 output_stream.write(decoded_value.to_bytes(1))
                 huffman_code_length = 0
                 huffman_code = 0
             elif decoded_value == 256:
                 break
-            elif decoded_value in range(257, 286):
+            elif 257 <= decoded_value < 286:
                 self._decode_LZ77(input_stream, decoded_value, output_stream, dist_tree=dist_tree)
                 huffman_code_length = 0
                 huffman_code = 0
@@ -162,22 +162,22 @@ class Deflate:
 
     def _decode_LZ77(self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, dist_tree: HuffmanTree | None = None) -> None:
         # Get the length of the match
-        if length_value in range(257, 265):
+        if 257 <= length_value < 265:
             base_match_length = 3 + length_value - 257
             extra_bits_length = 0
-        elif length_value in range(265, 269):
+        elif 265 <= length_value < 269:
             base_match_length = 11 + 2 * (length_value - 265)
             extra_bits_length = 1
-        elif length_value in range(269, 273):
+        elif 269 <= length_value < 273:
             base_match_length = 19 + 4 * (length_value - 269)
             extra_bits_length = 2
-        elif length_value in range(273, 277):
+        elif 273 <= length_value < 277:
             base_match_length = 35 + 8 * (length_value - 273)
             extra_bits_length = 3
-        elif length_value in range(277, 281):
+        elif 277 <= length_value < 281:
             base_match_length = 67 + 16 * (length_value - 277)
             extra_bits_length = 4
-        elif length_value in range(281, 285):
+        elif 281 <= length_value < 285:
             base_match_length = 131 + 32 * (length_value - 281)
             extra_bits_length = 5
         elif length_value == 285:
@@ -208,46 +208,46 @@ class Deflate:
                     break
 
         # Get the distance of the match
-        if dist_value in range(0, 4):
+        if 0 <= dist_value < 4:
             base_match_distance = dist_value + 1
             extra_bits_length = 0
-        elif dist_value in range(4, 6):
+        elif 4 <= dist_value < 6:
             base_match_distance = 5 + 2 * (dist_value - 4)
             extra_bits_length = 1
-        elif dist_value in range(6, 8):
+        elif 6 <= dist_value < 8:
             base_match_distance = 9 + 4 * (dist_value - 6)
             extra_bits_length = 2
-        elif dist_value in range(8, 10):
+        elif 8 <= dist_value < 10:
             base_match_distance = 17 + 8 * (dist_value - 8)
             extra_bits_length = 3
-        elif dist_value in range(10, 12):
+        elif 10 <= dist_value < 12:
             base_match_distance = 33 + 16 * (dist_value - 10)
             extra_bits_length = 4
-        elif dist_value in range(12, 14):
+        elif 12 <= dist_value < 14:
             base_match_distance = 65 + 32 * (dist_value - 12)
             extra_bits_length = 5
-        elif dist_value in range(14, 16):
+        elif 14 <= dist_value < 16:
             base_match_distance = 129 + 64 * (dist_value - 14)
             extra_bits_length = 6
-        elif dist_value in range(16, 18):
+        elif 16 <= dist_value < 18:
             base_match_distance = 257 + 128 * (dist_value - 16)
             extra_bits_length = 7
-        elif dist_value in range(18, 20):
+        elif 18 <= dist_value < 20:
             base_match_distance = 513 + 256 * (dist_value - 18)
             extra_bits_length = 8
-        elif dist_value in range(20, 22):
+        elif 20 <= dist_value < 22:
             base_match_distance = 1025 + 512 * (dist_value - 20)
             extra_bits_length = 9
-        elif dist_value in range(22, 24):
+        elif 22 <= dist_value < 24:
             base_match_distance = 2049 + 1024 * (dist_value - 22)
             extra_bits_length = 10
-        elif dist_value in range(24, 26):
+        elif 24 <= dist_value < 26:
             base_match_distance = 4097 + 2048 * (dist_value - 24)
             extra_bits_length = 11
-        elif dist_value in range(26, 28):
+        elif 26 <= dist_value < 28:
             base_match_distance = 8193 + 4096 * (dist_value - 26)
             extra_bits_length = 12
-        elif dist_value in range(28, 30):
+        elif 28 <= dist_value < 30:
             base_match_distance = 16385 + 8192 * (dist_value - 28)
             extra_bits_length = 13
         else:

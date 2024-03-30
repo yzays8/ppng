@@ -102,7 +102,7 @@ class Decoder:
             IDAT_chunk_data,
             decompressor.Decompressor(self._is_logging).decompress,
             lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
-            lambda x: self._generate_color_data(x, height, width, color_type, bit_depth, palette),
+            lambda x: self._generate_color_data(x, width, height, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
 
@@ -147,7 +147,7 @@ class Decoder:
         logger.info('Finish gamma correction successfully')
         return color_data
 
-    def _generate_color_data(self, data: np.ndarray, height: int, width: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
+    def _generate_color_data(self, data: np.ndarray, width: int, height: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
         logger.info('Start generating color data')
 
         match color_type:
