@@ -7,8 +7,8 @@ class BitStream:
         self.byte = 0
         self.bit_offset = 0
 
-    # Return 1-bit from the data cut byte by byte from the stream
-    # The bit is read from the LSB to the MSB of the byte
+    # Returns 1 bit from the data sliced byte by byte from the stream.
+    # The bit is read from the LSB to the MSB of the byte.
     def read_bit(self) -> int:
         if self.bit_offset == 0:
             self.byte = self.stream.read(1)[0]
@@ -19,18 +19,18 @@ class BitStream:
             self.bit_offset = 0
         return bit
 
-    # e.g. 0b01001011 -> 0b11010010
-    def read_bits(self, n: int, reverse: bool = True) -> int:
+    # e.g. 0b01001011 -> 0b11010010 (reverse=True)
+    def read_bits(self, length: int, reverse: bool = True) -> int:
         bits = 0
         if reverse:
-            for _ in range(n):
+            for _ in range(length):
                 bits = (bits << 1) | self.read_bit()
         else:
-            for i in range(n):
+            for i in range(length):
                 bits |= self.read_bit() << i
         return bits
 
-    # If the position of the bit is not a multiple of 8, ignore the remaining bits and read the next byte
+    # If the position of the bit is not a multiple of 8, ignore the remaining bits and read the next byte.
     def read_byte(self, reverse: bool = True) -> int:
         if self.bit_offset != 0:
             self.bit_offset = 0
@@ -39,16 +39,16 @@ class BitStream:
             return self.byte
         return int('{:08b}'.format(self.byte)[::-1], 2)
 
-    def read_bytes(self, n: int, reverse: bool = True, endian: str = 'big') -> int:
+    def read_bytes(self, length: int, reverse: bool = True, endian: str = 'big') -> int:
         ret = 0
         match endian:
             case 'big':
-                for _ in range(n):
+                for _ in range(length):
                     ret = (ret << 8) | self.read_byte(reverse=reverse)
             case 'little':
-                for i in range(n):
+                for i in range(length):
                     ret |= self.read_byte(reverse=reverse) << (8 * i)
             case _:
-                print('Invalid endian type. Use "big" or "little".')
+                print('Invalid endian type. Specify "big" or "little".')
                 sys.exit(1)
         return ret
