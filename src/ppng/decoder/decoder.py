@@ -375,6 +375,7 @@ class Decoder:
         return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A' # "HTJ P N G CR LF SUB LF"
 
     def _read_chunk(self, f: io.BufferedReader) -> tuple[int, str, bytes, int]:
+        """Get (chunk_length, chunk_type, chunk_data, chunk_crc)"""
         # Big endian
         chunk_length = int.from_bytes(f.read(4))
         chunk_type = f.read(4).decode('utf-8')
@@ -384,6 +385,7 @@ class Decoder:
         return chunk_length, chunk_type, chunk_data, chunk_crc
 
     def _read_IHDR(self, f: io.BufferedReader) -> tuple[int, int, int, int, int, int, int]:
+        """Get PNG header information: (width, height, bit_depth, color_type, compression_method, filter_method, interlace_method)"""
         length, type, data, crc = self._read_chunk(f)
         calculated_crc32_checksum = crc32.calculate_crc32(type.encode('utf-8') + data)
         if calculated_crc32_checksum != crc:
