@@ -6,6 +6,7 @@ from loguru import logger
 from .tree import HuffmanTree
 from ..utils.bitstream import BitStream
 
+# https://www.rfc-editor.org/rfc/rfc1951
 class Deflate:
     def __init__(self, is_logging: bool = False) -> None:
         logger.remove()

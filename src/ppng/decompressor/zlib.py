@@ -6,6 +6,7 @@ from .adler32 import calculate_adler32
 from .deflate import Deflate
 from ..utils.bitstream import BitStream
 
+# https://www.rfc-editor.org/rfc/rfc1950
 class Zlib:
     def __init__(self, is_logging: bool = False) -> None:
         self._is_logging = is_logging

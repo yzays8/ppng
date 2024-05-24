@@ -1,3 +1,4 @@
+# https://www.rfc-editor.org/rfc/rfc1950#page-5
 def calculate_adler32(data: bytes) -> int:
     s1 = 1
     s2 = 0

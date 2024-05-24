@@ -18,6 +18,7 @@ class Decoder:
         # If a message higher than ERROR is logged while _is_logging is False, log it to stderr regardless of the logging flag
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not self._is_logging)
 
+    # How the data is encoded to PNG: https://www.w3.org/TR/png-3/#4Concepts.EncodingIntro
     def decode_png(self, f: io.BufferedReader) -> np.ndarray:
         if not self._is_valid_header(f):
             logger.error('Invalid PNG image')
@@ -45,16 +46,23 @@ class Decoder:
                 sys.exit(1)
 
             match type:
+                # https://www.w3.org/TR/png-3/#11IDAT
                 case 'IDAT':
                     IDAT_chunk_data.write(data)
+
+                # https://www.w3.org/TR/png-3/#11IEND
                 case 'IEND':
                     break
+
+                # https://www.w3.org/TR/png-3/#11tEXt
                 case 'tEXt':
                     keyword, text = data.split(b'\x00', 1)
                     if len(text) > 0:
                         logger.info(f'tEXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
                     else:
                         logger.info(f'tEXt: {keyword.decode("utf-8")}')
+
+                # https://www.w3.org/TR/png-3/#11zTXt
                 case 'zTXt':
                     keyword, others = data.split(b'\x00', 1)
                     compression_method, compressed_text = others[0], others[1:]
@@ -66,6 +74,8 @@ class Decoder:
                         logger.info(f'zTXt: {keyword.decode("utf-8")} {text.decode("latin-1")}')
                     else:
                         logger.info(f'zTXt: {keyword.decode("utf-8")}')
+
+                # https://www.w3.org/TR/png-3/#11tIME
                 case 'tIME':
                     if length != 7:
                         logger.error('Invalid tIME chunk')
@@ -73,6 +83,8 @@ class Decoder:
                     year, month, day, hour, minute, second \
                         = int.from_bytes(data[:2]), data[2], data[3], data[4], data[5], data[6]
                     logger.info(f'tIME: {year}-{month}-{day} {hour:02d}:{minute:02d}:{second:02d}')
+
+                # https://www.w3.org/TR/png-3/#11gAMA
                 case 'gAMA':
                     if length != 4:
                         logger.error('Invalid gAMA chunk')
@@ -80,6 +92,8 @@ class Decoder:
                     # The data is a 4-byte unsigned integer, representing gamma times 100000 and rounded to the nearest integer.
                     gamma = int.from_bytes(data) / 100000
                     logger.info(f'gAMA: {gamma}')
+
+                # https://www.w3.org/TR/png-3/#11PLTE
                 case 'PLTE':
                     # The data in PLTE chunk is a set of RGB values (entry), each 3 bytes long.
                     # The number of palette entries is up to 256.
@@ -90,6 +104,7 @@ class Decoder:
                     logger.info(f'PLTE: {entry_num} entries')
                     # The order of data in each entry is R, G, B.
                     palette = np.frombuffer(data, dtype=np.uint8).reshape(entry_num, 3)
+
                 case _:
                     logger.warning(f'Chunk "{type}" is not supported')
 
@@ -106,6 +121,7 @@ class Decoder:
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
 
+    # https://www.w3.org/TR/png-3/#13Decoder-gamma-handling
     def _gamma_correct(self, color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
         # If gamma is 0.45455, gamma corrected value is same as original value
         if gamma == 0.45455:
@@ -147,6 +163,7 @@ class Decoder:
         logger.info('Finish gamma correction successfully')
         return color_data
 
+    # https://www.w3.org/TR/png-3/#4Concepts.PNGImage
     def _generate_color_data(self, data: np.ndarray, width: int, height: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
         logger.info('Start generating color data')
 
@@ -258,9 +275,10 @@ class Decoder:
         logger.info('Finish generating color data successfully')
         return new_data
 
-    # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
+    # https://www.w3.org/TR/png-3/#9Filters
     def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> np.ndarray:
         logger.info('Start removing filter')
+
         match bit_depth:
             case 1 | 2 | 4:
                 if bit_depth * width % 8 == 0:
@@ -268,6 +286,7 @@ class Decoder:
                 else:
                     # All pixels in a scanline are packed into bytes without regard to the byte boundaries.
                     # If bit depth is less than 8, some low-order bits of the last byte of the scanline are not used (undefined value).
+                    # https://www.w3.org/TR/png-3/#7Scanline
                     bytes_per_line = bit_depth * width // 8 + 1
                 corr_byte_dist = 1
             case 8 | 16:
@@ -279,6 +298,7 @@ class Decoder:
 
         color_data = np.ndarray(shape=(height, bytes_per_line), dtype=np.uint8)
 
+        # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
         for i in range(height):
             line_start_index = i * (1 + bytes_per_line)
             filter_type = data[line_start_index]
@@ -305,6 +325,7 @@ class Decoder:
 
                         color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 3: # Average filter
+                    # https://www.w3.org/TR/png-3/#9Filter-type-3-Average
                     for j in range(bytes_per_line):
                         if j >= corr_byte_dist and i > 0:
                             # The scanline is not the first scanline, and not the first pixel of the scanline
@@ -321,6 +342,7 @@ class Decoder:
 
                         color_data[i][j] = (data[data_start_index + j] + pre) % 256
                 case 4: # Paeth filter
+                    # https://www.w3.org/TR/png-3/#9Filter-type-4-Paeth
                     for j in range(bytes_per_line):
                         a = int(color_data[i][j - corr_byte_dist]) if j >= corr_byte_dist else 0                # left
                         b = int(color_data[i - 1][j]) if i > 0 else 0                                           # upper
@@ -371,9 +393,11 @@ class Decoder:
             return bits_per_pixel / 8
         return int(bits_per_pixel / 8)
 
+    # https://www.w3.org/TR/png-3/#3PNGsignature
     def _is_valid_header(self, f: io.BufferedReader) -> bool:
         return f.read(8) == b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A' # "HTJ P N G CR LF SUB LF"
 
+    # https://www.w3.org/TR/png-3/#5Chunk-layout
     def _read_chunk(self, f: io.BufferedReader) -> tuple[int, str, bytes, int]:
         """Get (chunk_length, chunk_type, chunk_data, chunk_crc)"""
         # Big endian
@@ -384,6 +408,7 @@ class Decoder:
 
         return chunk_length, chunk_type, chunk_data, chunk_crc
 
+    # https://www.w3.org/TR/png-3/#11IHDR
     def _read_IHDR(self, f: io.BufferedReader) -> tuple[int, int, int, int, int, int, int]:
         """Get PNG header information: (width, height, bit_depth, color_type, compression_method, filter_method, interlace_method)"""
         length, type, data, crc = self._read_chunk(f)
