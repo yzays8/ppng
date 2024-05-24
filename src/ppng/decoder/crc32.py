@@ -1,26 +1,23 @@
+# https://www.w3.org/TR/png-3/#5CRC-algorithm
 def calculate_crc32(data: bytes) -> int:
-    # 4 bytes 0x00 is appended to the end of the data to ensure that the data is longer than the polynomial.
-    data += b'\x00' * 4
+    # The CRC polynomial employed is x32 + x26 + x23 + x22 + x16 + x12 + x11 + x10 + x8 + x7 + x5 + x4 + x2 + x + 1,
+    # which is represented in binary as 0000 0100 1100 0001 0001 1101 1011 0111, and in hexadecimal as 0x04C11DB7.
+    # This algorithm uses the inverted version, represented in binary as 1110 1101 1011 1000 1000 0011 0010 0000 and in hex as 0xEDB88320,
+    # because each byte is processed in LSB to MSB.
+    POLYNOMIAL = 0xEDB88320
 
-    # x32 + x26 + x23 + x22 + x16 + x12 + x11 + x10 + x8 + x7 + x5 + x4 + x2 + x + 1
-    POLY = 0xEDB88320
+    # The 32-bit CRC is initialized to all 1's in PNG.
+    crc = 0xFFFFFFFF
 
-    crc = 0x00000000
-
-    for i, byte in enumerate(data):
-        # Invert the first 4 bytes to prevent them from being ignored if they are 0x00.
-        if i < 4:
-            byte ^= 0xFF
-
-        # The data is poured in from the MSB of calc_crc.
+    # The byte is taken from the top of the data.
+    for byte in data:
+        crc ^= byte
+        # The byte is processed LSB to MSB in PNG.
         for _ in range(8):
-            flag = crc & 1 == 1
-            crc >>= 1
-            if byte & 1 == 1:
-                crc |= 0x80000000
-            byte >>= 1
-            if flag:
-                crc ^= POLY
-    crc ^= 0xFFFFFFFF
+            if crc & 1:
+                crc = (crc >> 1) ^ POLYNOMIAL
+            else:
+                crc >>= 1
 
-    return crc
+    # The CRC is inverted after all bytes have been processed in PNG.
+    return crc ^ 0xFFFFFFFF
