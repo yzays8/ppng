@@ -17,10 +17,12 @@ class HuffmanTree:
     def __init__(self) -> None:
         self._root = Node(None)
         self.height = 0
+        self.map = {}
 
     def insert(self, symbol: int | None, huffman_code: int, huffman_code_length: int) -> None:
         current_node = self._root
-        for bit in bin(huffman_code)[2:].zfill(huffman_code_length):
+        code = bin(huffman_code)[2:].zfill(huffman_code_length)
+        for bit in code:
             if bit == '0':
                 if current_node.left is None:
                     # Create a intermediate (maybe leaf) node
@@ -33,10 +35,11 @@ class HuffmanTree:
                 current_node = current_node.right
         # Set the symbol to the leaf node
         current_node.symbol = symbol
+        self.map[code] = symbol
 
         self.height = max(self.height, huffman_code_length)
 
-    def search(self, huffman_code: int, huffman_code_length: int) -> int | None:
+    def search_tree(self, huffman_code: int, huffman_code_length: int) -> int | None:
         current_node = self._root
         for bit in bin(huffman_code)[2:].zfill(huffman_code_length):
             if bit == '0':
@@ -48,6 +51,10 @@ class HuffmanTree:
                     return None
                 current_node = current_node.right
         return current_node.symbol
+
+    # O(1)
+    def search_map(self, huffman_code: int, huffman_code_length: int) -> int | None:
+        return self.map.get(bin(huffman_code)[2:].zfill(huffman_code_length))
 
     def print(self) -> None:
         def print_tree(node: Node, start_depth: int) -> None:

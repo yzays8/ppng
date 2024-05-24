@@ -99,7 +99,7 @@ class Deflate:
                     logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
                     sys.exit(1)
 
-                decoded_value = code_length_code_tree.search(huffman_code, huffman_code_length)
+                decoded_value = code_length_code_tree.search_map(huffman_code, huffman_code_length)
                 if decoded_value is None:
                     continue
 
@@ -141,7 +141,7 @@ class Deflate:
                 logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
                 sys.exit(1)
 
-            decoded_value = literal_length_tree.search(huffman_code, huffman_code_length)
+            decoded_value = literal_length_tree.search_map(huffman_code, huffman_code_length)
             if decoded_value is None:
                 continue
 
@@ -203,7 +203,7 @@ class Deflate:
                     logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
                     sys.exit(1)
 
-                dist_value = dist_tree.search(huffman_code, huffman_code_length)
+                dist_value = dist_tree.search_map(huffman_code, huffman_code_length)
                 if dist_value is not None:
                     break
 
