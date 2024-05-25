@@ -13,7 +13,7 @@ class Decompressor():
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not is_logging)
 
     def decompress(self, data: io.BytesIO) -> bytes:
-        logger.info('Start decompressing')
+        logger.info('The decompression has started')
         ret = Zlib(self._is_logging).decompress(data.getbuffer().tobytes())
-        logger.info('Finish decompressing successfully')
+        logger.info('The decompression has completed successfully')
         return ret

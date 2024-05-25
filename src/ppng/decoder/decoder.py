@@ -133,7 +133,7 @@ class Decoder:
         if gamma == 0.45455:
             return color_data
 
-        logger.info('Start gamma correction')
+        logger.info('The gamma correction has started')
 
         lut_exp = 1.0
         crt_exp = 2.2
@@ -166,7 +166,7 @@ class Decoder:
                 logger.error(f'Color type {color_type} is not allowed')
                 sys.exit(1)
 
-        logger.info('Finish gamma correction successfully')
+        logger.info('The gamma correction has finished successfully')
         return color_data
 
     # https://www.w3.org/TR/png-3/#4Concepts.PNGImage
@@ -178,7 +178,7 @@ class Decoder:
             bit_depth: int,
             palette: np.ndarray | None = None
         ) -> NDArray[np.uint8] | NDArray[np.uint16]:
-        logger.info('Start generating color data')
+        logger.info('The process of generating color data has started')
 
         match color_type:
             case 0:
@@ -285,12 +285,12 @@ class Decoder:
 
         assert new_data is not None
 
-        logger.info('Finish generating color data successfully')
+        logger.info('The process of generating color data has finished successfully')
         return new_data
 
     # https://www.w3.org/TR/png-3/#9Filters
     def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> NDArray[np.uint8]:
-        logger.info('Start removing filter')
+        logger.info('The process of removing filter has started')
 
         match bit_depth:
             case 1 | 2 | 4:
@@ -378,7 +378,7 @@ class Decoder:
                     logger.error(f'Filter type {filter_type} is not allowed')
                     sys.exit(1)
 
-        logger.info('Finish removing filter successfully')
+        logger.info('The process of removing filter has finished successfully')
         return color_data
 
     def _get_bytes_per_pixel(self, color_type: int, bit_depth: int) -> int | float:
