@@ -1,4 +1,5 @@
 import os
+import time
 
 import typer
 
@@ -10,7 +11,10 @@ def main(
     ) -> None:
     try:
         with open(file, 'rb') as f:
+            start = time.time()
             image = ppng.Decoder(is_logging=is_logging).decode_png(f)
+            if is_logging:
+                print(f'Decoding time: {time.time() - start:.3f} sec')
             ppng.show_image(image, os.path.basename(file))
         return
     except FileNotFoundError:

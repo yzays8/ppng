@@ -295,4 +295,4 @@ class Deflate:
 
         # Copy the matched literal to the output stream.
         for _ in range(match_length):
-            output_stream.write(output_stream.getvalue()[-match_distance].to_bytes(1))
+            output_stream.write(output_stream.getbuffer()[-match_distance].to_bytes(1))
