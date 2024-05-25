@@ -2,7 +2,7 @@ from typing import Self
 from toolz import pipe
 
 class Node:
-    def __init__(self, symbol: int | None, left: Self = None, right: Self = None) -> None:
+    def __init__(self, symbol: int | None, left: Self | None = None, right: Self | None = None) -> None:
         self.symbol = symbol
         self.left = left
         self.right = right
@@ -17,9 +17,9 @@ class HuffmanTree:
     def __init__(self) -> None:
         self._root = Node(None)
         self.height = 0
-        self.map = {}
+        self.map: dict[str, int] = {}   # {huffman_code: symbol}
 
-    def insert(self, symbol: int | None, huffman_code: int, huffman_code_length: int) -> None:
+    def insert(self, symbol: int, huffman_code: int, huffman_code_length: int) -> None:
         current_node = self._root
         code = bin(huffman_code)[2:].zfill(huffman_code_length)
         for bit in code:
@@ -57,28 +57,16 @@ class HuffmanTree:
         return self.map.get(bin(huffman_code)[2:].zfill(huffman_code_length))
 
     def print(self) -> None:
-        def print_tree(node: Node, start_depth: int) -> None:
+        def print_tree(node: Node | None, start_depth: int) -> None:
             if node is not None:
                 print_tree(node.right, start_depth + 1)
                 print(f'{" " * 4 * start_depth} -> [{node.symbol}]')
                 print_tree(node.left, start_depth + 1)
         print_tree(self._root, 0)
 
-    def get_symbol_code_table(self) -> dict[int, str]:
-        symbol_code_table = {}
-        def get_symbol_code(node: Node, code: str) -> None:
-            if node is not None:
-                if node.is_leaf():
-                    symbol_code_table[node.symbol] = code
-                else:
-                    get_symbol_code(node.left, code + '0')
-                    get_symbol_code(node.right, code + '1')
-        get_symbol_code(self._root, '')
-        return symbol_code_table
-
     # Make canonical huffman tree from decoded values and lengths of their codes
-    @staticmethod
-    def create_canonical_huffman_tree(code_length_code_table: dict[int, int]) -> Self:
+    @classmethod
+    def create_canonical_huffman_tree(cls, code_length_code_table: dict[int, int]) -> Self:
         # Sort by the length of the code and then by the value
         table: list[tuple[int, int]] = pipe(
             code_length_code_table.items(),
@@ -87,7 +75,7 @@ class HuffmanTree:
             list,
         )
 
-        huffman_tree = HuffmanTree()
+        huffman_tree = cls()
         current_code, current_code_length = 0, 0
         for symbol, length in table:
             if length > current_code_length:

@@ -164,7 +164,7 @@ class Deflate:
 
     # https://www.rfc-editor.org/rfc/rfc1951#section-3.2.3
     def _read_deflate_block_header(self, data: BitStream) -> tuple[bool, int]:
-        bfinal = data.read_bit()
+        bfinal = bool(data.read_bit())
         btype = data.read_bits(2, reverse=False)
         return bfinal, btype
 
@@ -260,10 +260,11 @@ class Deflate:
             self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, distance_tree: HuffmanTree | None = None
         ) -> None:
         # Get the length of the repeated literal.
-        base_match_length, extra_bits_length = self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE.get(length_value)
-        if base_match_length is None:
+        lb = self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE.get(length_value)
+        if lb is None:
             logger.error(f'Invalid length code: {length_value}')
             sys.exit(1)
+        base_match_length, extra_bits_length = lb
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)
         match_length = base_match_length + extra_bits
 
@@ -281,15 +282,17 @@ class Deflate:
                     logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
                     sys.exit(1)
 
-                dist_value = distance_tree.search_map(huffman_code, huffman_code_length)
-                if dist_value is not None:
+                res = distance_tree.search_map(huffman_code, huffman_code_length)
+                if res is not None:
+                    dist_value = res
                     break
 
         # Get the distance of the same literal code occurs.
-        base_match_distance, extra_bits_length = self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE.get(dist_value)
-        if base_match_distance is None:
+        dil = self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE.get(dist_value)
+        if dil is None:
             logger.error(f'Invalid distance code: {dist_value}')
             sys.exit(1)
+        base_match_distance, extra_bits_length = dil
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)
         match_distance = base_match_distance + extra_bits
 

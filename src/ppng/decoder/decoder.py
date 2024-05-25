@@ -2,6 +2,7 @@ import sys
 import io
 
 import numpy as np
+from numpy.typing import NDArray
 from toolz import pipe
 from loguru import logger
 
@@ -9,7 +10,7 @@ from .. import decompressor
 from . import crc32
 
 class Decoder:
-    def __init__(self, is_logging: bool = False):
+    def __init__(self, is_logging: bool = False) -> None:
         self._is_logging = is_logging
 
         logger.remove()
@@ -19,7 +20,7 @@ class Decoder:
         logger.add(sys.stderr, level='ERROR', filter=lambda record: not self._is_logging)
 
     # How the data is encoded to PNG: https://www.w3.org/TR/png-3/#4Concepts.EncodingIntro
-    def decode_png(self, f: io.BufferedReader) -> np.ndarray:
+    def decode_png(self, f: io.BufferedReader) -> NDArray[np.uint8] | NDArray[np.uint16]:
         if not self._is_valid_header(f):
             logger.error('Invalid PNG image')
             sys.exit(1)
@@ -33,8 +34,8 @@ class Decoder:
 
         IDAT_chunk_data = io.BytesIO()
 
-        gamma: float = None
-        palette: np.ndarray = None
+        gamma: float | None = None
+        palette: np.ndarray | None = None
 
         while True:
             length, type, data, crc = self._read_chunk(f)
@@ -116,13 +117,18 @@ class Decoder:
         return pipe(
             IDAT_chunk_data,
             decompressor.Decompressor(self._is_logging).decompress,
-            lambda x: self._remove_filter(x, width, height, bytes_per_pixel, bit_depth),
+            lambda x: self._remove_filter(x, width, height, int(bytes_per_pixel), bit_depth),
             lambda x: self._generate_color_data(x, width, height, color_type, bit_depth, palette),
             lambda x: self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
         )
 
     # https://www.w3.org/TR/png-3/#13Decoder-gamma-handling
-    def _gamma_correct(self, color_data: np.ndarray,  color_type: int, bit_depth: int, gamma: float) -> np.ndarray:
+    def _gamma_correct(self,
+            color_data: NDArray[np.uint8] | NDArray[np.uint16],
+            color_type: int,
+            bit_depth: int,
+            gamma: float
+        ) -> NDArray[np.uint8] | NDArray[np.uint16]:
         # If gamma is 0.45455, gamma corrected value is same as original value
         if gamma == 0.45455:
             return color_data
@@ -164,7 +170,14 @@ class Decoder:
         return color_data
 
     # https://www.w3.org/TR/png-3/#4Concepts.PNGImage
-    def _generate_color_data(self, data: np.ndarray, width: int, height: int, color_type: int, bit_depth: int, palette: np.ndarray = None) -> np.ndarray:
+    def _generate_color_data(
+            self,
+            data: NDArray[np.uint8],
+            width: int, height: int,
+            color_type: int,
+            bit_depth: int,
+            palette: np.ndarray | None = None
+        ) -> NDArray[np.uint8] | NDArray[np.uint16]:
         logger.info('Start generating color data')
 
         match color_type:
@@ -172,18 +185,18 @@ class Decoder:
                 # grayscale
                 match bit_depth:
                     case 1:
-                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.empty((height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 new_data[i][j] = (data[i][j // 8] >> (7 - j % 8) & 0b1) * 0xFF
                     case 2:
-                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.empty((height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 # Map 0b00 ~ 0b11 to 0x00 ~ 0xFF
                                 new_data[i][j] = (data[i][j // 4] >> (6 - 2 * (j % 4)) & 0b11) * 0x55
                     case 4:
-                        new_data = np.ndarray(shape=(height, width), dtype=np.uint8)
+                        new_data = np.empty((height, width), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 # Map 0b0000 ~ 0b1111 to 0x00 ~ 0xFF
@@ -191,7 +204,7 @@ class Decoder:
                     case 8:
                         new_data = data.reshape(height, width)
                     case 16:
-                        new_data = np.ndarray(shape=(height, width), dtype=np.uint16)
+                        new_data = np.empty((height, width), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
                                 new_data[i][j] = data[i][j * 2] << 8 |  data[i][j * 2 + 1]
@@ -206,7 +219,7 @@ class Decoder:
                     case 8:
                         new_data = data.reshape(height, width, 3)
                     case 16:
-                        new_data = np.ndarray(shape=(height, width, 3), dtype=np.uint16)
+                        new_data = np.empty((height, width, 3), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
                                 new_data[i][j][0] = data[i][j * 6] << 8 |  data[i][j * 6 + 1]
@@ -222,7 +235,7 @@ class Decoder:
                     sys.exit(1)
                 match bit_depth:
                     case 1 | 2 | 4 | 8:
-                        new_data = np.ndarray(shape=(height, width, 3), dtype=np.uint8)
+                        new_data = np.empty((height, width, 3), dtype=np.uint8)
                         for i in range(height):
                             for j in range(width):
                                 new_data[i][j] = palette[data[i][j]]
@@ -238,7 +251,7 @@ class Decoder:
                         a = data[:, :, 1]         # alpha
                         new_data = np.dstack((r, g, b, a))
                     case 16:
-                        new_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        new_data = np.empty((height, width, 4), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
                                 gray: np.uint16 = data[i][j * 4] << 8 |  data[i][j * 4 + 1]
@@ -256,7 +269,7 @@ class Decoder:
                     case 8:
                         new_data = data.reshape(height, width, 4)
                     case 16:
-                        new_data = np.ndarray(shape=(height, width, 4), dtype=np.uint16)
+                        new_data = np.empty((height, width, 4), dtype=np.uint16)
                         for i in range(height):
                             for j in range(width):
                                 new_data[i][j][0] = data[i][j * 8] << 8 |  data[i][j * 8 + 1]
@@ -276,7 +289,7 @@ class Decoder:
         return new_data
 
     # https://www.w3.org/TR/png-3/#9Filters
-    def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> np.ndarray:
+    def _remove_filter(self, data: bytes, width: int, height: int, bytes_per_pixel: int, bit_depth: int) -> NDArray[np.uint8]:
         logger.info('Start removing filter')
 
         match bit_depth:
@@ -296,7 +309,7 @@ class Decoder:
                 logger.error(f'Bit depth {bit_depth} is not allowed')
                 sys.exit(1)
 
-        color_data = np.ndarray(shape=(height, bytes_per_line), dtype=np.uint8)
+        color_data = np.empty((height, bytes_per_line), dtype=np.uint8)
 
         # Restoring original image data from filtered image data is done byte by byte, not pixel by pixel.
         for i in range(height):
