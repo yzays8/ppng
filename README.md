@@ -29,6 +29,7 @@ It also supports some ancillary chunks.
 
 - `tEXt`
 - `zTXt`
+- `iTXt`
 - `tIME`
 - `gAMA`
 

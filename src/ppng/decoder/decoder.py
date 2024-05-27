@@ -76,6 +76,41 @@ class Decoder:
                     else:
                         logger.info(f'zTXt: {keyword.decode("utf-8")}')
 
+                # https://www.w3.org/TR/png-3/#11iTXt
+                case 'iTXt':
+                    offset = 0
+
+                    keyword_end = data.find(b'\x00', offset)
+                    keyword = data[offset:keyword_end].decode('utf-8')
+                    offset = keyword_end + 1
+
+                    compression_flag = data[offset]
+                    offset += 1
+
+                    compression_method = data[offset]
+                    if compression_method != 0:
+                        logger.error('Invalid iTXt chunk')
+                        sys.exit(1)
+                    offset += 1
+
+                    language_tag_end = data.find(b'\x00', offset)
+                    language_tag = data[offset:language_tag_end].decode('utf-8')
+                    offset = language_tag_end + 1
+
+                    translated_keyword_end = data.find(b'\x00', offset)
+                    translated_keyword = data[offset:translated_keyword_end].decode('utf-8')
+                    offset = translated_keyword_end + 1
+
+                    if compression_flag == 0:
+                        text = data[offset:].decode('utf-8')
+                    else:
+                        text = decompressor.Decompressor(self._is_logging).decompress(io.BytesIO(data[offset:]))
+
+                    if len(text) > 0:
+                        logger.info(f'iTXt: {keyword} ({translated_keyword}) lang: {language_tag} {text}')
+                    else:
+                        logger.info(f'iTXt: {keyword} ({translated_keyword}) lang: {language_tag}')
+
                 # https://www.w3.org/TR/png-3/#11tIME
                 case 'tIME':
                     if length != 7:
