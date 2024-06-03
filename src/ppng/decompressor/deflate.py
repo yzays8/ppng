@@ -4,18 +4,39 @@ from types import MappingProxyType
 
 from loguru import logger
 
-from .tree import HuffmanTree
 from ..utils.bitstream import BitStream
+from .tree import HuffmanTree
+
 
 # https://www.rfc-editor.org/rfc/rfc1951
 class Deflate:
     def __init__(self, is_logging: bool = False) -> None:
         logger.remove()
         logger.add(sys.stdout, filter=lambda record: is_logging)
-        logger.add(sys.stderr, level='ERROR', filter=lambda record: not is_logging)
+        logger.add(sys.stderr, level="ERROR", filter=lambda record: not is_logging)
 
         self.FIXED_HUFFMAN_TREE = self._create_fixed_huffman_tree()
-        self.CODE_LENGTH_CODE_TABLE_INDEXES = (16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15)
+        self.CODE_LENGTH_CODE_TABLE_INDEXES = (
+            16,
+            17,
+            18,
+            0,
+            8,
+            7,
+            9,
+            6,
+            10,
+            5,
+            11,
+            4,
+            12,
+            3,
+            13,
+            2,
+            14,
+            1,
+            15,
+        )
         self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE = self._get_match_lb_eb_table()
         self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE = self._get_match_db_eb_table()
 
@@ -29,16 +50,20 @@ class Deflate:
             match btype:
                 # No compression
                 case 0b00:
-                    len = data_stream.read_bytes(2, reverse=False, endian='little')
-                    nlen = data_stream.read_bytes(2, reverse=False, endian='little')
+                    len = data_stream.read_bytes(2, reverse=False, endian="little")
+                    nlen = data_stream.read_bytes(2, reverse=False, endian="little")
                     if len != (~nlen & 0xFFFF):
-                        logger.error('NLEN is not the one\'s complement of LEN')
+                        logger.error("NLEN is not the one's complement of LEN")
                         sys.exit(1)
-                    output.write(data_stream.read_bytes(len, reverse=False).to_bytes(len))
+                    output.write(
+                        data_stream.read_bytes(len, reverse=False).to_bytes(len)
+                    )
 
                 # Compressed with fixed Huffman codes
                 case 0b01:
-                    self._decompress_compressed_section(data_stream, output, self.FIXED_HUFFMAN_TREE, distance_tree=None)
+                    self._decompress_compressed_section(
+                        data_stream, output, self.FIXED_HUFFMAN_TREE, distance_tree=None
+                    )
 
                 # Compressed with dynamic Huffman codes
                 case 0b10:
@@ -71,15 +96,23 @@ class Deflate:
                     hclen = data_stream.read_bits(4, reverse=False)
 
                     # (4), (5), (6)
-                    code_length_code_tree = self._create_code_length_code_tree(data_stream, hclen)
-                    literal_length_tree = self._create_tree_from_code_length_code_tree(data_stream, code_length_code_tree, hlit + 257)
-                    distance_tree = self._create_tree_from_code_length_code_tree(data_stream, code_length_code_tree, hdist + 1)
+                    code_length_code_tree = self._create_code_length_code_tree(
+                        data_stream, hclen
+                    )
+                    literal_length_tree = self._create_tree_from_code_length_code_tree(
+                        data_stream, code_length_code_tree, hlit + 257
+                    )
+                    distance_tree = self._create_tree_from_code_length_code_tree(
+                        data_stream, code_length_code_tree, hdist + 1
+                    )
 
                     # (7)
-                    self._decompress_compressed_section(data_stream, output, literal_length_tree, distance_tree)
+                    self._decompress_compressed_section(
+                        data_stream, output, literal_length_tree, distance_tree
+                    )
 
                 case 0b11:
-                    logger.error('BTYPE 0b11 is reserved for future use')
+                    logger.error("BTYPE 0b11 is reserved for future use")
                     sys.exit(1)
 
                 case _:
@@ -168,18 +201,25 @@ class Deflate:
         btype = data.read_bits(2, reverse=False)
         return bfinal, btype
 
-    def _create_code_length_code_tree(self, input_stream: BitStream, hclen: int) -> HuffmanTree:
+    def _create_code_length_code_tree(
+        self, input_stream: BitStream, hclen: int
+    ) -> HuffmanTree:
         code_length_code_table = {}
         for i in range(hclen + 4):
-            code_length_code_table[self.CODE_LENGTH_CODE_TABLE_INDEXES[i]] = input_stream.read_bits(3, reverse=False)
+            code_length_code_table[self.CODE_LENGTH_CODE_TABLE_INDEXES[i]] = (
+                input_stream.read_bits(3, reverse=False)
+            )
         for i in range(19):
             if i not in code_length_code_table:
                 code_length_code_table[i] = 0
         return HuffmanTree.create_canonical_huffman_tree(code_length_code_table)
 
     def _create_tree_from_code_length_code_tree(
-            self, input_stream: BitStream, code_length_code_tree: HuffmanTree, table_num: int
-        ) -> HuffmanTree:
+        self,
+        input_stream: BitStream,
+        code_length_code_tree: HuffmanTree,
+        table_num: int,
+    ) -> HuffmanTree:
         table: dict[int, int] = {}
         i = 0
         while i < table_num:
@@ -188,10 +228,14 @@ class Deflate:
                 huffman_code = (huffman_code << 1) | input_stream.read_bit()
                 huffman_code_length += 1
                 if huffman_code_length > code_length_code_tree.height:
-                    logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                    logger.error(
+                        f"Invalid Huffman code length: equal to or greater than {huffman_code_length}"
+                    )
                     sys.exit(1)
 
-                decoded_value = code_length_code_tree.search_map(huffman_code, huffman_code_length)
+                decoded_value = code_length_code_tree.search_map(
+                    huffman_code, huffman_code_length
+                )
                 if decoded_value is None:
                     continue
 
@@ -223,21 +267,25 @@ class Deflate:
         return HuffmanTree.create_canonical_huffman_tree(table)
 
     def _decompress_compressed_section(
-            self,
-            input_stream: BitStream,
-            output_stream: io.BytesIO,
-            literal_length_tree: HuffmanTree,
-            distance_tree: HuffmanTree | None = None
-        ) -> None:
+        self,
+        input_stream: BitStream,
+        output_stream: io.BytesIO,
+        literal_length_tree: HuffmanTree,
+        distance_tree: HuffmanTree | None = None,
+    ) -> None:
         huffman_code, huffman_code_length = 0, 0
         while True:
             huffman_code = (huffman_code << 1) | input_stream.read_bit()
             huffman_code_length += 1
             if huffman_code_length > literal_length_tree.height:
-                logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                logger.error(
+                    f"Invalid Huffman code length: equal to or greater than {huffman_code_length}"
+                )
                 sys.exit(1)
 
-            decoded_value = literal_length_tree.search_map(huffman_code, huffman_code_length)
+            decoded_value = literal_length_tree.search_map(
+                huffman_code, huffman_code_length
+            )
             if decoded_value is None:
                 continue
 
@@ -248,21 +296,30 @@ class Deflate:
             elif decoded_value == 256:
                 break
             elif 257 <= decoded_value < 286:
-                self._decode_LZ77(input_stream, decoded_value, output_stream, distance_tree=distance_tree)
+                self._decode_LZ77(
+                    input_stream,
+                    decoded_value,
+                    output_stream,
+                    distance_tree=distance_tree,
+                )
                 huffman_code_length = 0
                 huffman_code = 0
             else:
                 # 286 and 287 are included in the fixed Huffman code table, but they don't appear in the compressed data.
-                logger.error(f'Invalid Huffman code: {bin(huffman_code)}')
+                logger.error(f"Invalid Huffman code: {bin(huffman_code)}")
                 sys.exit(1)
 
     def _decode_LZ77(
-            self, input_stream: BitStream, length_value: int, output_stream: io.BytesIO, distance_tree: HuffmanTree | None = None
-        ) -> None:
+        self,
+        input_stream: BitStream,
+        length_value: int,
+        output_stream: io.BytesIO,
+        distance_tree: HuffmanTree | None = None,
+    ) -> None:
         # Get the length of the repeated literal.
         lb = self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE.get(length_value)
         if lb is None:
-            logger.error(f'Invalid length code: {length_value}')
+            logger.error(f"Invalid length code: {length_value}")
             sys.exit(1)
         base_match_length, extra_bits_length = lb
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)
@@ -279,7 +336,9 @@ class Deflate:
                 huffman_code = (huffman_code << 1) | input_stream.read_bit()
                 huffman_code_length += 1
                 if huffman_code_length > distance_tree.height:
-                    logger.error(f'Invalid Huffman code length: equal to or greater than {huffman_code_length}')
+                    logger.error(
+                        f"Invalid Huffman code length: equal to or greater than {huffman_code_length}"
+                    )
                     sys.exit(1)
 
                 res = distance_tree.search_map(huffman_code, huffman_code_length)
@@ -290,7 +349,7 @@ class Deflate:
         # Get the distance of the same literal code occurs.
         dil = self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE.get(dist_value)
         if dil is None:
-            logger.error(f'Invalid distance code: {dist_value}')
+            logger.error(f"Invalid distance code: {dist_value}")
             sys.exit(1)
         base_match_distance, extra_bits_length = dil
         extra_bits = input_stream.read_bits(extra_bits_length, reverse=False)

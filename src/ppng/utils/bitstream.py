@@ -1,6 +1,7 @@
 import io
 import sys
 
+
 class BitStream:
     def __init__(self, byte_stream: bytes) -> None:
         self.stream = io.BytesIO(byte_stream)
@@ -37,15 +38,15 @@ class BitStream:
         self.byte = self.stream.read(1)[0]
         if reverse == False:
             return self.byte
-        return int('{:08b}'.format(self.byte)[::-1], 2)
+        return int("{:08b}".format(self.byte)[::-1], 2)
 
-    def read_bytes(self, length: int, reverse: bool = True, endian: str = 'big') -> int:
+    def read_bytes(self, length: int, reverse: bool = True, endian: str = "big") -> int:
         ret = 0
         match endian:
-            case 'big':
+            case "big":
                 for _ in range(length):
                     ret = (ret << 8) | self.read_byte(reverse=reverse)
-            case 'little':
+            case "little":
                 for i in range(length):
                     ret |= self.read_byte(reverse=reverse) << (8 * i)
             case _:

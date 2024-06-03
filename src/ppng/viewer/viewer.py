@@ -1,8 +1,11 @@
-import numpy as np
 import cv2
+import numpy as np
 from numpy.typing import NDArray
 
-def show_image(color_data:  NDArray[np.uint8] | NDArray[np.uint16], file_name: str) -> None:
+
+def show_image(
+    color_data: NDArray[np.uint8] | NDArray[np.uint16], file_name: str
+) -> None:
     # cv2 allows only BGR format
     color_data_BGR = cv2.cvtColor(color_data, cv2.COLOR_RGB2BGR)
 
@@ -12,7 +15,7 @@ def show_image(color_data:  NDArray[np.uint8] | NDArray[np.uint16], file_name: s
         key = cv2.waitKey(100)
 
         # Quit if 'q' or ESC is pressed
-        if key == ord('q') or key == 27:
+        if key == ord("q") or key == 27:
             cv2.destroyAllWindows()
             break
         # Quit if the window is closed
