@@ -128,8 +128,10 @@ class Decoder:
                     if compression_flag == 0:
                         text = data[offset:].decode("utf-8")
                     else:
-                        text = decompressor.Decompressor(self._is_logging).decompress(
-                            io.BytesIO(data[offset:])
+                        text = (
+                            decompressor.Decompressor(self._is_logging)
+                            .decompress(io.BytesIO(data[offset:]))
+                            .decode("utf-8")
                         )
 
                     if len(text) > 0:
