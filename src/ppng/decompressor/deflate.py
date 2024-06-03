@@ -124,8 +124,8 @@ class Deflate:
         return output.getvalue()
 
     # https://www.rfc-editor.org/rfc/rfc1951#section-3.2.6
-    @classmethod
-    def _create_fixed_huffman_tree(cls) -> HuffmanTree:
+    @staticmethod
+    def _create_fixed_huffman_tree() -> HuffmanTree:
         huffman_tree = HuffmanTree()
         for value in range(0, 144):
             huffman_tree.insert(value, 0b00110000 + value, 8)
@@ -138,8 +138,8 @@ class Deflate:
         return huffman_tree
 
     # https://www.rfc-editor.org/rfc/rfc1951#section-3.2.5
-    @classmethod
-    def _get_match_lb_eb_table(cls) -> MappingProxyType:
+    @staticmethod
+    def _get_match_lb_eb_table() -> MappingProxyType:
         """Returns the hash table of the match length base and extra bits"""
         table: dict[int, tuple[int, int]] = {}
         for length_value in range(257, 286):
@@ -160,8 +160,8 @@ class Deflate:
         return MappingProxyType(table)
 
     # https://www.rfc-editor.org/rfc/rfc1951#section-3.2.5
-    @classmethod
-    def _get_match_db_eb_table(cls) -> MappingProxyType:
+    @staticmethod
+    def _get_match_db_eb_table() -> MappingProxyType:
         """Returns the hash table of the match distance base and extra bits"""
         table: dict[int, tuple[int, int]] = {}
         for dist_value in range(0, 30):
