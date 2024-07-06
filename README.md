@@ -54,6 +54,14 @@ bash run.sh -l tests/image/mandrill/type2-8bit.png
 
 ## Testing
 
+Run the following command:
+
 ```sh
 bash tests/test.sh
+```
+
+PNG images for testing are included in this repo, but you can also generate them yourself from the TIFF file. Make sure that `ImageMagick` is installed on your system to execute `convert` command, and then run the following command:
+
+```sh
+bash tests/testgen.sh
 ```
