@@ -15,8 +15,8 @@ class Deflate:
         logger.add(sys.stdout, filter=lambda record: is_logging)
         logger.add(sys.stderr, level="ERROR", filter=lambda record: not is_logging)
 
-        self.FIXED_HUFFMAN_TREE = self._create_fixed_huffman_tree()
-        self.CODE_LENGTH_CODE_TABLE_INDEXES = (
+        self._FIXED_HUFFMAN_TREE = self._create_fixed_huffman_tree()
+        self._CODE_LENGTH_CODE_TABLE_INDEXES = (
             16,
             17,
             18,
@@ -37,8 +37,8 @@ class Deflate:
             1,
             15,
         )
-        self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE = self._get_match_lb_eb_table()
-        self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE = self._get_match_db_eb_table()
+        self._MATCH_LENGTH_BASE_EXTRA_BITS_TABLE = self._get_match_lb_eb_table()
+        self._MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE = self._get_match_db_eb_table()
 
     def decompress(self, data_stream: BitStream) -> bytes:
         output = io.BytesIO()
@@ -62,7 +62,10 @@ class Deflate:
                 # Compressed with fixed Huffman codes
                 case 0b01:
                     self._decompress_compressed_section(
-                        data_stream, output, self.FIXED_HUFFMAN_TREE, distance_tree=None
+                        data_stream,
+                        output,
+                        self._FIXED_HUFFMAN_TREE,
+                        distance_tree=None,
                     )
 
                 # Compressed with dynamic Huffman codes
@@ -206,7 +209,7 @@ class Deflate:
     ) -> HuffmanTree:
         code_length_code_table = {}
         for i in range(hclen + 4):
-            code_length_code_table[self.CODE_LENGTH_CODE_TABLE_INDEXES[i]] = (
+            code_length_code_table[self._CODE_LENGTH_CODE_TABLE_INDEXES[i]] = (
                 input_stream.read_bits(3, reverse=False)
             )
         for i in range(19):
@@ -317,7 +320,7 @@ class Deflate:
         distance_tree: HuffmanTree | None = None,
     ) -> None:
         # Get the length of the repeated literal.
-        lb = self.MATCH_LENGTH_BASE_EXTRA_BITS_TABLE.get(length_value)
+        lb = self._MATCH_LENGTH_BASE_EXTRA_BITS_TABLE.get(length_value)
         if lb is None:
             logger.error(f"Invalid length code: {length_value}")
             sys.exit(1)
@@ -347,7 +350,7 @@ class Deflate:
                     break
 
         # Get the distance of the same literal code occurs.
-        dil = self.MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE.get(dist_value)
+        dil = self._MATCH_DISTANCE_BASE_EXTRA_BITS_TABLE.get(dist_value)
         if dil is None:
             logger.error(f"Invalid distance code: {dist_value}")
             sys.exit(1)
