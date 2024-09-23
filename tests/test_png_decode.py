@@ -33,38 +33,38 @@ class TestDecode:
         except FileNotFoundError:
             raise FileNotFoundError(f"File not found: {os.path.abspath(file_name)}")
 
-    def test_type0_1bit(self):
+    def test_type0_1bit(self) -> None:
         self._validate_png_decoding("type0-1bit.png")
 
-    def test_type0_2bit(self):
+    def test_type0_2bit(self) -> None:
         self._validate_png_decoding("type0-2bit.png")
 
-    def test_type0_4bit(self):
+    def test_type0_4bit(self) -> None:
         self._validate_png_decoding("type0-4bit.png")
 
-    def test_type0_8bit(self):
+    def test_type0_8bit(self) -> None:
         self._validate_png_decoding("type0-8bit.png")
 
-    def test_type0_16bit(self):
+    def test_type0_16bit(self) -> None:
         self._validate_png_decoding("type0-16bit.png")
 
-    def test_type2_8bit(self):
+    def test_type2_8bit(self) -> None:
         self._validate_png_decoding("type2-8bit.png")
 
-    def test_type2_16bit(self):
+    def test_type2_16bit(self) -> None:
         self._validate_png_decoding("type2-16bit.png")
 
-    def test_type3_8bit(self):
+    def test_type3_8bit(self) -> None:
         self._validate_png_decoding("type3-8bit.png")
 
-    def test_type4_8bit(self):
+    def test_type4_8bit(self) -> None:
         self._validate_png_decoding("type4-8bit.png")
 
-    def test_type4_16bit(self):
+    def test_type4_16bit(self) -> None:
         self._validate_png_decoding("type4-16bit.png")
 
-    def test_type6_8bit(self):
+    def test_type6_8bit(self) -> None:
         self._validate_png_decoding("type6-8bit.png")
 
-    def test_type6_16bit(self):
+    def test_type6_16bit(self) -> None:
         self._validate_png_decoding("type6-16bit.png")
