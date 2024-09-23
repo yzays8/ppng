@@ -1,16 +1,13 @@
 import os
-import sys
 
 import cv2
 import numpy as np
 
-ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(ROOT_PATH)
 from src.ppng.decoder.decoder import Decoder
 
 
 class TestDecode:
-    TEST_DIR = os.path.join(ROOT_PATH, "tests/image/mandrill/")
+    TEST_DIR = os.path.join(os.path.dirname(__file__), "image/mandrill/")
 
     def _validate_png_decoding(self, file_name: str) -> None:
         file_name = self.TEST_DIR + file_name

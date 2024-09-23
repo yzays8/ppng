@@ -1,11 +1,7 @@
-import os
 import random
 import string
-import sys
 import zlib
 
-ROOT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(ROOT_PATH)
 from src.ppng.decompressor.adler32 import calculate_adler32
 
 
