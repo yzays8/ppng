@@ -6,8 +6,7 @@ from loguru import logger
 from numpy.typing import NDArray
 from toolz import pipe
 
-from .. import decompressor
-from . import crc32
+from . import crc32, decompressor
 
 
 class Decoder:

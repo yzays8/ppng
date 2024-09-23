@@ -2,7 +2,7 @@ import random
 import string
 import zlib
 
-from src.ppng.decompressor.zlib import Zlib
+from src.ppng.decoder.decompressor.zlib import Zlib
 
 
 class TestDecompress:

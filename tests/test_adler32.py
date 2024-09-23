@@ -2,7 +2,7 @@ import random
 import string
 import zlib
 
-from src.ppng.decompressor.adler32 import calculate_adler32
+from src.ppng.decoder.decompressor.adler32 import calculate_adler32
 
 
 class TestAdler32:
