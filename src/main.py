@@ -13,6 +13,10 @@ install(show_locals=True)
 app = typer.Typer()
 
 
+def main() -> None:
+    typer.run(run)
+
+
 @app.command()
 def run(
     file: Path = typer.Argument(
@@ -41,4 +45,4 @@ def run(
 
 
 if __name__ == "__main__":
-    typer.run(run)
+    main()
