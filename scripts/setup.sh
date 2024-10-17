@@ -3,12 +3,13 @@
 set -eu
 cd $(dirname $0)
 
-readonly VENV_DIR='.venv'
+readonly ROOT_DIR='..'
+readonly VENV_DIR="$ROOT_DIR/.venv"
 
 if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
 
 source "$VENV_DIR/bin/activate"
-pip3 install -r requirements.txt
+pip3 install -r "$ROOT_DIR/requirements.txt"
 deactivate

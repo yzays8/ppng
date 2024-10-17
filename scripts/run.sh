@@ -22,5 +22,5 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 source "$VENV_DIR/bin/activate"
-python3 -m cProfile --sort cumtime "$ROOT_DIR/src/main.py" ${args[@]}
+python3 "$ROOT_DIR/src/main.py" ${args[@]}
 deactivate
