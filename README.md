@@ -49,7 +49,7 @@ Options:
 Example:
 
 ```sh
-bash run.sh -l tests/image/mandrill/type2-8bit.png
+bash scripts/run.sh -l tests/image/mandrill/type2-8bit.png
 ```
 
 ## Testing
@@ -57,11 +57,11 @@ bash run.sh -l tests/image/mandrill/type2-8bit.png
 Run the following command:
 
 ```sh
-bash tests/test.sh
+bash scripts/test.sh
 ```
 
 PNG images for testing are included in this repo, but you can also generate them yourself from the TIFF file. Make sure that `ImageMagick` is installed on your system to execute `convert` command, and then run the following command:
 
 ```sh
-bash tests/testgen.sh
+bash scripts/generate_test_images.sh
 ```
