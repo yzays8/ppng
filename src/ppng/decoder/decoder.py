@@ -4,7 +4,6 @@ import sys
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray
-from toolz import pipe
 
 from . import crc32, decompressor
 
@@ -14,12 +13,10 @@ class Decoder:
         self._is_logging = is_logging
 
         logger.remove()
-        logger.add(sys.stdout, filter=lambda record: self._is_logging)
+        logger.add(sys.stdout, filter=lambda _: self._is_logging)
 
         # If a message higher than ERROR is logged while _is_logging is False, log it to stderr regardless of the logging flag
-        logger.add(
-            sys.stderr, level="ERROR", filter=lambda record: not self._is_logging
-        )
+        logger.add(sys.stderr, level="ERROR", filter=lambda _: not self._is_logging)
 
     # How the data is encoded to PNG: https://www.w3.org/TR/png-3/#4Concepts.EncodingIntro
     def decode_png(
@@ -35,8 +32,8 @@ class Decoder:
             bit_depth,
             color_type,
             compression_method,
-            filter_method,
-            interlace_method,
+            _,
+            _,
         ) = self._read_IHDR(f)
 
         if compression_method != 0:
@@ -190,19 +187,20 @@ class Decoder:
         bytes_per_pixel = self._get_bytes_per_pixel(color_type, bit_depth)
         logger.info(f"Bytes per pixel: {bytes_per_pixel}")
 
-        return pipe(
-            IDAT_chunk_data,
-            decompressor.Decompressor(self._is_logging).decompress,
-            lambda x: self._remove_filter(
-                x, width, height, int(bytes_per_pixel), bit_depth
-            ),
-            lambda x: self._generate_color_data(
-                x, width, height, color_type, bit_depth, palette
-            ),
-            lambda x: (
-                self._gamma_correct(x, color_type, bit_depth, gamma) if gamma else x
-            ),
+        decompressed_data = decompressor.Decompressor(self._is_logging).decompress(
+            IDAT_chunk_data
         )
+        unfiltered_data = self._remove_filter(
+            decompressed_data, width, height, int(bytes_per_pixel), bit_depth
+        )
+        color_data = self._generate_color_data(
+            unfiltered_data, width, height, color_type, bit_depth, palette
+        )
+
+        if gamma is None:
+            return color_data
+        else:
+            return self._gamma_correct(color_data, color_type, bit_depth, gamma)
 
     # https://www.w3.org/TR/png-3/#13Decoder-gamma-handling
     def _gamma_correct(
