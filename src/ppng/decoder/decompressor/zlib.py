@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-from ...utils.bitstream import BitStream
+from ...utils import BitStream
 from .adler32 import calculate_adler32
 from .deflate import Deflate
 

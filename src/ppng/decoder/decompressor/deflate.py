@@ -4,7 +4,7 @@ from types import MappingProxyType
 
 from loguru import logger
 
-from ...utils.bitstream import BitStream
+from ...utils import BitStream
 from .tree import HuffmanTree
 
 

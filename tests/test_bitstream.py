@@ -1,4 +1,4 @@
-from src.ppng.utils.bitstream import BitStream
+from src.ppng.utils import BitStream
 
 
 class TestBitStream:
