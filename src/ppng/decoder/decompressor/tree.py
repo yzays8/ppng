@@ -1,7 +1,5 @@
 from typing import Self
 
-from toolz import pipe
-
 
 class Node:
     def __init__(
@@ -70,17 +68,21 @@ class HuffmanTree:
 
         print_tree(self._root, 0)
 
-    # Make canonical huffman tree from decoded values and lengths of their codes
+    # Makes canonical huffman tree from decoded values and lengths of their codes.
     @classmethod
     def create_canonical_huffman_tree(
         cls, code_length_code_table: dict[int, int]
     ) -> Self:
-        # Sort by the length of the code and then by the value
-        table: list[tuple[int, int]] = pipe(
-            code_length_code_table.items(),
-            lambda arg: sorted(arg, key=lambda x: (x[1], x[0])),
-            lambda arg: filter(lambda x: x[1] != 0, arg),
-            list,
+        # Sort the "code length code" table by code length and then by code,
+        # then remove all codes with length 0 from the table.
+        table = list(
+            filter(
+                lambda x: x[1] != 0,
+                sorted(
+                    code_length_code_table.items(),
+                    key=lambda x: (x[1], x[0]),
+                ),
+            )
         )
 
         huffman_tree = cls()
