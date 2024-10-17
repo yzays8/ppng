@@ -79,27 +79,27 @@ class Decoder:
 
                 # https://www.w3.org/TR/png-3/#11zTXt
                 case "zTXt":
-                    keyword, others = data.split(b"\x00", 1)
+                    zkeyword, others = data.split(b"\x00", 1)
                     compression_method, compressed_text = others[0], others[1:]
                     if compression_method != 0:
                         logger.error("Invalid zTXt chunk")
                         sys.exit(1)
-                    text = decompressor.Decompressor(self._is_logging).decompress(
+                    ztext = decompressor.Decompressor(self._is_logging).decompress(
                         io.BytesIO(compressed_text)
                     )
-                    if len(text) > 0:
+                    if len(ztext) > 0:
                         logger.info(
-                            f'zTXt: {keyword.decode("utf-8")} {text.decode("latin-1")}'
+                            f'zTXt: {zkeyword.decode("utf-8")} {ztext.decode("latin-1")}'
                         )
                     else:
-                        logger.info(f'zTXt: {keyword.decode("utf-8")}')
+                        logger.info(f'zTXt: {zkeyword.decode("utf-8")}')
 
                 # https://www.w3.org/TR/png-3/#11iTXt
                 case "iTXt":
                     offset = 0
 
                     keyword_end = data.find(b"\x00", offset)
-                    keyword = data[offset:keyword_end].decode("utf-8")
+                    ikeyword = data[offset:keyword_end].decode("utf-8")
                     offset = keyword_end + 1
 
                     compression_flag = data[offset]
@@ -122,9 +122,9 @@ class Decoder:
                     offset = translated_keyword_end + 1
 
                     if compression_flag == 0:
-                        text = data[offset:].decode("utf-8")
+                        itext = data[offset:].decode("utf-8")
                     else:
-                        text = (
+                        itext = (
                             decompressor.Decompressor(self._is_logging)
                             .decompress(io.BytesIO(data[offset:]))
                             .decode("utf-8")
@@ -132,11 +132,11 @@ class Decoder:
 
                     if len(text) > 0:
                         logger.info(
-                            f"iTXt: {keyword} ({translated_keyword}) lang: {language_tag} {text}"
+                            f"iTXt: {ikeyword} ({translated_keyword}) lang: {language_tag} {itext}"
                         )
                     else:
                         logger.info(
-                            f"iTXt: {keyword} ({translated_keyword}) lang: {language_tag}"
+                            f"iTXt: {ikeyword} ({translated_keyword}) lang: {language_tag}"
                         )
 
                 # https://www.w3.org/TR/png-3/#11tIME
