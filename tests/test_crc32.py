@@ -6,9 +6,6 @@ from src.ppng.decoder.crc32 import calculate_crc32
 
 
 class TestCRC32:
-    def _validate_crc32(self, data: bytes) -> None:
-        assert zlib.crc32(data) == calculate_crc32(data)
-
     def test_IEND(self) -> None:
         data = "IEND".encode("utf-8")
         assert zlib.crc32(data) == calculate_crc32(data)
