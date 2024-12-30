@@ -1,10 +1,10 @@
 # ppng
 
-`ppng` is a simple PNG decoder built from scratch for educational purposes. It implements related algorithms like zlib, Deflate, Adler-32, and CRC-32 from the ground up without existing libraries.
+ppng is a simple PNG decoder built from scratch for educational purposes. It implements related algorithms like zlib, Deflate, Adler-32, and CRC-32 from the ground up without existing libraries.
 
 ## Features
 
-`ppng` supports decoding of PNG images with all color types and bit depths.
+ppng supports all [color types](https://www.w3.org/TR/png-3/#3colourType) and [bit depths](https://www.w3.org/TR/png-3/#table111).
 
 ### Color Type
 
@@ -23,7 +23,7 @@
 - **Truecolor with alpha (color type 6)**
   - 8, 16 bit
 
-It also supports some ancillary chunks.
+It also supports some [ancillary chunks](https://www.w3.org/TR/png-3/#3ancillaryChunk).
 
 ### Ancillary Chunk
 
@@ -36,7 +36,7 @@ It also supports some ancillary chunks.
 ## Usage
 
 ```text
-Usage: bash run.sh [OPTIONS] FILE
+Usage: main.py [OPTIONS] FILE
 
 Arguments:
   FILE  PNG file to decode  [required]
@@ -46,7 +46,9 @@ Options:
   --help         Show this message and exit.
 ```
 
-Example:
+### Example
+
+You can easily run the program using a provided script.
 
 ```sh
 bash scripts/run.sh -l tests/image/mandrill/type2-8bit.png
