@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 cd $(dirname $0)
 
 readonly ROOT_DIR='..'

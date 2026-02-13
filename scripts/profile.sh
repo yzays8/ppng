@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
 # Convert all relative paths inside the arguments to absolute paths.
 args=()
